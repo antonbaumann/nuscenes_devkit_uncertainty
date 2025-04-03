@@ -1,13 +1,14 @@
 # nuScenes dev-kit.
 # Code written by Oscar Beijbom, 2019.
 
-from typing import Callable
+from typing import Callable, List
 
 import numpy as np
 
 from nuscenes.eval.common.data_classes import EvalBoxes
 from nuscenes.eval.detection.data_classes import DetectionMetricData
-from nuscenes.eval.common.utils import center_distance, scale_iou, yaw_diff, velocity_l2, attr_acc, cummean
+from nuscenes.eval.common.utils import center_distance, scale_iou, yaw_diff, velocity_l2, attr_acc, cummean, \
+    gaussian_nll_error, within_cofidence_interval
 
 
 def accumulate(gt_boxes: EvalBoxes,
@@ -15,7 +16,8 @@ def accumulate(gt_boxes: EvalBoxes,
                class_name: str,
                dist_fcn: Callable,
                dist_th: float,
-               verbose: bool = False) -> DetectionMetricData:
+               verbose: bool = False,
+               confidence_interval_values: List[float] = [0.1, 0.25, 0.5, 0.95]) -> DetectionMetricData:
     """
     Average Precision over predefined different recall thresholds for a single distance threshold.
     The recall/conf thresholds and other raw metrics will be used in secondary metrics.
@@ -57,6 +59,8 @@ def accumulate(gt_boxes: EvalBoxes,
     fp = []  # Accumulator of false positives.
     conf = []  # Accumulator of confidences.
 
+    ci_accumulation = {ci: [] for ci in confidence_interval_values}
+
     # match_data holds the extra metrics we calculate for each match.
     match_data = {'trans_err': [],
                   'vel_err': [],
@@ -65,7 +69,11 @@ def accumulate(gt_boxes: EvalBoxes,
                   'attr_err': [],
                   'conf': [],
                   'ego_dist': [],
-                  'vel_magn': []}
+                  'vel_magn': [],
+                  'nll_gauss_error_all': [],
+                  'trans_gauss_err': [],
+                  'bbox_gauss_err': [],
+                  'ci_gauss_err': ci_accumulation}
 
     # ---------------------------------------------
     # Match and accumulate match data.
@@ -103,6 +111,15 @@ def accumulate(gt_boxes: EvalBoxes,
             match_data['trans_err'].append(center_distance(gt_box_match, pred_box))
             match_data['vel_err'].append(velocity_l2(gt_box_match, pred_box))
             match_data['scale_err'].append(1 - scale_iou(gt_box_match, pred_box))
+
+            # Evaluate uncertainty metrics
+            nll_error = gaussian_nll_error(gt_box_match, pred_box)
+            match_data['nll_gauss_error_all'].append(nll_error[[0, 1, 3, 4]].mean())
+            match_data['trans_gauss_err'].append(nll_error[:2].mean())
+            match_data['bbox_gauss_err'].append(nll_error[3:5].mean())
+            
+            for ci in confidence_interval_values:
+                match_data['ci_gauss_err'][ci].append(within_cofidence_interval(gt_box_match, pred_box, ci))
 
             # Barrier orientation is only determined up to 180 degree. (For cones orientation is discarded later)
             period = np.pi if class_name == 'barrier' else 2 * np.pi
@@ -150,7 +167,18 @@ def accumulate(gt_boxes: EvalBoxes,
     for key in match_data.keys():
         if key == "conf":
             continue  # Confidence is used as reference to align with fp and tp. So skip in this step.
-
+        
+        elif key == "ci_gauss_err":
+            for ci in confidence_interval_values:
+                # Same as cummean in utils but on multidim indicator data
+                tmp = np.stack(match_data[key][ci])
+                sums = np.nancumsum(tmp.astype(float), 0)
+                counts = np.cumsum(~np.isnan(tmp), 0)
+                tmp = np.divide(sums, counts, out=np.zeros_like(sums), where=counts != 0)
+                result = np.zeros((101, tmp.shape[-1]))
+                for i in range(tmp.shape[-1]):
+                    result[:, i] = np.interp(conf[::-1], match_data['conf'][::-1], tmp[::-1][:, i])[::-1]
+                match_data[key][ci] = result.tolist()
         else:
             # For each match_data, we first calculate the accumulated mean.
             tmp = cummean(np.array(match_data[key]))
@@ -168,7 +196,12 @@ def accumulate(gt_boxes: EvalBoxes,
                                vel_err=match_data['vel_err'],
                                scale_err=match_data['scale_err'],
                                orient_err=match_data['orient_err'],
-                               attr_err=match_data['attr_err'])
+                               attr_err=match_data['attr_err'],
+                               nll_gauss_error_all = match_data['nll_gauss_error_all'],
+                               trans_gauss_err = match_data['trans_gauss_err'],
+                               bbox_gauss_err = match_data['bbox_gauss_err'],
+                               ci_evaluation = match_data['ci_gauss_err']
+                               )
 
 
 def calc_ap(md: DetectionMetricData, min_recall: float, min_precision: float) -> float:

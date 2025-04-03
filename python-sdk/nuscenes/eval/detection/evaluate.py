@@ -140,6 +140,15 @@ class DetectionEval:
                     tp = calc_tp(metric_data, self.cfg.min_recall, metric_name)
                 metrics.add_label_tp(class_name, metric_name, tp)
 
+            axes = ['x', 'y', 'w', 'l']
+            for ci, interval in metric_data.ci_evaluation.items():
+                for i, axis in enumerate(axes): 
+                    name = f"CI_{ci}_of_{axis}"
+                    first_ind = round(100 * self.cfg.min_recall) + 1
+                    last_ind = metric_data.max_recall_ind
+                    tp = np.mean(np.array(interval)[first_ind: last_ind + 1, i]) if last_ind >= first_ind else 1.
+                    metrics.add_label_tp(class_name, name, tp)
+
         # Compute evaluation time.
         metrics.add_runtime(time.time() - start_time)
 
@@ -224,7 +233,10 @@ class DetectionEval:
             'scale_err': 'mASE',
             'orient_err': 'mAOE',
             'vel_err': 'mAVE',
-            'attr_err': 'mAAE'
+            'attr_err': 'mAAE',
+            'nll_gauss_error_all': 'mGNLL',
+            'trans_gauss_err': 'mNLL_POS', 
+            'bbox_gauss_err': 'mNLL_BBOX'
         }
         for tp_name, tp_val in metrics_summary['tp_errors'].items():
             print('%s: %.4f' % (err_name_mapping[tp_name], tp_val))
@@ -234,17 +246,20 @@ class DetectionEval:
         # Print per-class metrics.
         print()
         print('Per-class results:')
-        print('Object Class\tAP\tATE\tASE\tAOE\tAVE\tAAE')
+        print('Object Class\tAP\tATE\tASE\tAOE\tAVE\tAAE\tmGNLL\tmNLL_POS\tmNLL_BBOX')
         class_aps = metrics_summary['mean_dist_aps']
         class_tps = metrics_summary['label_tp_errors']
         for class_name in class_aps.keys():
-            print('%s\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f'
+            print('%s\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f'
                   % (class_name, class_aps[class_name],
                      class_tps[class_name]['trans_err'],
                      class_tps[class_name]['scale_err'],
                      class_tps[class_name]['orient_err'],
                      class_tps[class_name]['vel_err'],
-                     class_tps[class_name]['attr_err']))
+                     class_tps[class_name]['attr_err'],
+                     class_tps[class_name]['nll_gauss_error_all'],
+                     class_tps[class_name]['trans_gauss_err'],
+                     class_tps[class_name]['bbox_gauss_err']))
 
         return metrics_summary
 

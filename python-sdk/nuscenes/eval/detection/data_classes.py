@@ -91,7 +91,11 @@ class DetectionMetricData(MetricData):
                  vel_err: np.array,
                  scale_err: np.array,
                  orient_err: np.array,
-                 attr_err: np.array):
+                 attr_err: np.array,
+                 nll_gauss_error_all: np.array,
+                 trans_gauss_err: np.array,
+                 bbox_gauss_err: np.array,
+                 ci_evaluation: dict):
 
         # Assert lengths.
         assert len(recall) == self.nelem
@@ -102,6 +106,9 @@ class DetectionMetricData(MetricData):
         assert len(scale_err) == self.nelem
         assert len(orient_err) == self.nelem
         assert len(attr_err) == self.nelem
+        assert len(nll_gauss_error_all) == self.nelem
+        assert len(trans_gauss_err) == self.nelem
+        assert len(bbox_gauss_err) == self.nelem
 
         # Assert ordering.
         assert all(confidence == sorted(confidence, reverse=True))  # Confidences should be descending.
@@ -116,6 +123,10 @@ class DetectionMetricData(MetricData):
         self.scale_err = scale_err
         self.orient_err = orient_err
         self.attr_err = attr_err
+        self.nll_gauss_error_all = nll_gauss_error_all
+        self.trans_gauss_err = trans_gauss_err
+        self.bbox_gauss_err = bbox_gauss_err
+        self.ci_evaluation = ci_evaluation
 
     def __eq__(self, other):
         eq = True
@@ -153,6 +164,10 @@ class DetectionMetricData(MetricData):
             'scale_err': self.scale_err.tolist(),
             'orient_err': self.orient_err.tolist(),
             'attr_err': self.attr_err.tolist(),
+            'nll_gauss_error_all': self.nll_gauss_error_all.tolist(),
+            'trans_gauss_err': self.trans_gauss_err.tolist(),
+            'bbox_gauss_err': self.bbox_gauss_err.tolist(),
+            'ci_evaluation': self.ci_evaluation
         }
 
     @classmethod
@@ -165,7 +180,11 @@ class DetectionMetricData(MetricData):
                    vel_err=np.array(content['vel_err']),
                    scale_err=np.array(content['scale_err']),
                    orient_err=np.array(content['orient_err']),
-                   attr_err=np.array(content['attr_err']))
+                   attr_err=np.array(content['attr_err']),
+                   nll_gauss_error_all=np.array(content['nll_gauss_error_all']),
+                   trans_gauss_err=np.array(content['trans_gauss_err']),
+                   bbox_gauss_err=np.array(content['bbox_gauss_err']),
+                   ci_evaluation=content['ci_evaluation'])
 
     @classmethod
     def no_predictions(cls):
@@ -177,7 +196,11 @@ class DetectionMetricData(MetricData):
                    vel_err=np.ones(cls.nelem),
                    scale_err=np.ones(cls.nelem),
                    orient_err=np.ones(cls.nelem),
-                   attr_err=np.ones(cls.nelem))
+                   attr_err=np.ones(cls.nelem),
+                   nll_gauss_error_all=np.ones(cls.nelem),
+                   trans_gauss_err=np.ones(cls.nelem),
+                   bbox_gauss_err=np.ones(cls.nelem),
+                   ci_evaluation={})
 
     @classmethod
     def random_md(cls):
@@ -189,7 +212,11 @@ class DetectionMetricData(MetricData):
                    vel_err=np.random.random(cls.nelem),
                    scale_err=np.random.random(cls.nelem),
                    orient_err=np.random.random(cls.nelem),
-                   attr_err=np.random.random(cls.nelem))
+                   attr_err=np.random.random(cls.nelem),
+                   nll_gauss_error_all=np.random.random(cls.nelem),
+                   trans_gauss_err=np.random.random(cls.nelem),
+                   bbox_gauss_err=np.random.random(cls.nelem),
+                   ci_evaluation={})
 
 
 class DetectionMetrics:
@@ -325,7 +352,8 @@ class DetectionBox(EvalBox):
                  num_pts: int = -1,  # Nbr. LIDAR or RADAR inside the box. Only for gt boxes.
                  detection_name: str = 'car',  # The class name used in the detection challenge.
                  detection_score: float = -1.0,  # GT samples do not have a score.
-                 attribute_name: str = ''):  # Box attribute. Each box can have at most 1 attribute.
+                 attribute_name: str = '', # Box attribute. Each box can have at most 1 attribute.
+                 uncertainty: List[float] = []): # List of uncertainty values 
 
         super().__init__(sample_token, translation, size, rotation, velocity, num_pts)
 
@@ -343,6 +371,7 @@ class DetectionBox(EvalBox):
         self.detection_name = detection_name
         self.detection_score = detection_score
         self.attribute_name = attribute_name
+        self.uncertainty = uncertainty
 
     def __eq__(self, other):
         return (self.sample_token == other.sample_token and
@@ -368,7 +397,8 @@ class DetectionBox(EvalBox):
             'num_pts': self.num_pts,
             'detection_name': self.detection_name,
             'detection_score': self.detection_score,
-            'attribute_name': self.attribute_name
+            'attribute_name': self.attribute_name,
+            'uncertainty': self.uncertainty
         }
 
     @classmethod
@@ -383,7 +413,8 @@ class DetectionBox(EvalBox):
                    num_pts=-1 if 'num_pts' not in content else int(content['num_pts']),
                    detection_name=content['detection_name'],
                    detection_score=-1.0 if 'detection_score' not in content else float(content['detection_score']),
-                   attribute_name=content['attribute_name'])
+                   attribute_name=content['attribute_name'],
+                   uncertainty=content['uncertainty'])
 
 
 class DetectionMetricDataList:

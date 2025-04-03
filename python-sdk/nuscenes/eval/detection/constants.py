@@ -38,7 +38,7 @@ PRETTY_ATTRIBUTE_NAMES = {'pedestrian.moving': 'Ped. Moving',
                           'vehicle.parked': 'Veh. Parked',
                           'vehicle.stopped': 'Veh. Stopped'}
 
-TP_METRICS = ['trans_err', 'scale_err', 'orient_err', 'vel_err', 'attr_err']
+TP_METRICS = ['trans_err', 'scale_err', 'orient_err', 'vel_err', 'attr_err', 'nll_gauss_error_all', 'trans_gauss_err', 'bbox_gauss_err']
 
 PRETTY_TP_METRICS = {'trans_err': 'Trans.', 'scale_err': 'Scale', 'orient_err': 'Orient.', 'vel_err': 'Vel.',
                      'attr_err': 'Attr.'}

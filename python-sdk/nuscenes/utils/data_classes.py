@@ -444,7 +444,8 @@ class Box:
                  score: float = np.nan,
                  velocity: Tuple = (np.nan, np.nan, np.nan),
                  name: str = None,
-                 token: str = None):
+                 token: str = None,
+                 uncertainty: np.ndarray = None):
         """
         :param center: Center of box given as x, y, z.
         :param size: Size of box in width, length, height.
@@ -469,6 +470,7 @@ class Box:
         self.velocity = np.array(velocity)
         self.name = name
         self.token = token
+        self.uncertainty = uncertainty
 
     def __eq__(self, other):
         center = np.allclose(self.center, other.center)

@@ -3,6 +3,7 @@
 
 from typing import List, Dict, Any
 
+from scipy import stats
 import numpy as np
 from pyquaternion import Quaternion
 
@@ -10,6 +11,44 @@ from nuscenes.eval.common.data_classes import EvalBox
 from nuscenes.utils.data_classes import Box
 
 DetectionBox = Any  # Workaround as direct imports lead to cyclic dependencies.
+
+
+def within_cofidence_interval(gt_box: EvalBox, pred_box: EvalBox, confidence: float, distribution = stats.norm):
+    """
+    Determines whether bounding box position (x, y) and extent (w, l) are within given confidence interval.
+    :param gt_box: GT annotation sample.
+    :param pred_box: Predicted sample.
+    :confidence: Confidence percentage in (0; 1.0)
+    :distribution: Distribution that implements the percent point function (ppf) with mean 0 and variance 1.
+        Default: stats.norm (i.e. Normal Gaussian)
+    :return: indicator array if offest x, y and bbox w, l were within the confidence interval.
+    """
+    z_score = distribution.ppf((1 + confidence) / 2)
+    std_dev = np.sqrt(pred_box.uncertainty)
+
+    distance_from_mean = z_score * std_dev
+    
+    full_dist = np.abs(np.array(pred_box.translation) - np.array(gt_box.translation))
+    bbox_dist = np.abs(np.array(pred_box.size) - np.array(gt_box.size))
+
+    return np.concatenate([full_dist[:2] <= distance_from_mean[:2], bbox_dist[:2] <= distance_from_mean[3:5]]) + 0 
+
+
+def gaussian_nll_error(gt_box: EvalBox, pred_box: EvalBox) -> np.ndarray:
+    """
+    Gaussian negative log-likelihood metric for position and bbox parameters
+    :param gt_box: GT annotation sample.
+    :param pred_box: Predicted sample.
+    :return: Gaussian NLL difference for position and bounding box parameters.
+    """
+    uncertainties = np.array(pred_box.uncertainty)
+    uncertainties[uncertainties==0] = 1.0
+    log_uncertainties = np.log(uncertainties)
+    
+    full_dist = (np.array(pred_box.translation) - np.array(gt_box.translation)) ** 2
+    bbox_dist = (np.array(pred_box.size) - np.array(gt_box.size)) ** 2
+    out_dist = np.concatenate([full_dist, bbox_dist])
+    return out_dist / uncertainties[:6] + log_uncertainties[:6]
 
 
 def center_distance(gt_box: EvalBox, pred_box: EvalBox) -> float:
