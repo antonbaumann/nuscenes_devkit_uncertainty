@@ -4,6 +4,7 @@
 from typing import Callable, List
 
 import numpy as np
+from scipy import stats
 
 from nuscenes.eval.common.data_classes import EvalBoxes
 from nuscenes.eval.detection.data_classes import DetectionMetricData
@@ -17,7 +18,8 @@ def accumulate(gt_boxes: EvalBoxes,
                dist_fcn: Callable,
                dist_th: float,
                verbose: bool = False,
-               confidence_interval_values: List[float] = [0.1, 0.25, 0.5, 0.95]) -> DetectionMetricData:
+               confidence_interval_values: List[float] = [0.1, 0.25, 0.5, 0.95],
+               uncertainty_distribution: str = "gaussian") -> DetectionMetricData:
     """
     Average Precision over predefined different recall thresholds for a single distance threshold.
     The recall/conf thresholds and other raw metrics will be used in secondary metrics.
@@ -60,6 +62,7 @@ def accumulate(gt_boxes: EvalBoxes,
     conf = []  # Accumulator of confidences.
 
     ci_accumulation = {ci: [] for ci in confidence_interval_values}
+    distribution = stats.laplace if uncertainty_distribution == 'laplace' else stats.norm
 
     # match_data holds the extra metrics we calculate for each match.
     match_data = {'trans_err': [],
@@ -119,7 +122,7 @@ def accumulate(gt_boxes: EvalBoxes,
             match_data['bbox_gauss_err'].append(nll_error[3:5].mean())
             
             for ci in confidence_interval_values:
-                match_data['ci_gauss_err'][ci].append(within_cofidence_interval(gt_box_match, pred_box, ci))
+                match_data['ci_gauss_err'][ci].append(within_cofidence_interval(gt_box_match, pred_box, ci, distribution=distribution))
 
             # Barrier orientation is only determined up to 180 degree. (For cones orientation is discarded later)
             period = np.pi if class_name == 'barrier' else 2 * np.pi
@@ -147,8 +150,8 @@ def accumulate(gt_boxes: EvalBoxes,
     # ---------------------------------------------
 
     # Accumulate.
-    tp = np.cumsum(tp).astype(np.float)
-    fp = np.cumsum(fp).astype(np.float)
+    tp = np.cumsum(tp).astype(np.float64)
+    fp = np.cumsum(fp).astype(np.float64)
     conf = np.array(conf)
 
     # Calculate precision and recall.

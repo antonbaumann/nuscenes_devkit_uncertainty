@@ -22,7 +22,8 @@ class DetectionConfig:
                  min_recall: float,
                  min_precision: float,
                  max_boxes_per_sample: float,
-                 mean_ap_weight: int):
+                 mean_ap_weight: int,
+                 distribution: str = 'gaussian'):
 
         assert set(class_range.keys()) == set(DETECTION_NAMES), "Class count mismatch."
         assert dist_th_tp in dist_ths, "dist_th_tp must be in set of dist_ths."
@@ -35,7 +36,7 @@ class DetectionConfig:
         self.min_precision = min_precision
         self.max_boxes_per_sample = max_boxes_per_sample
         self.mean_ap_weight = mean_ap_weight
-
+        self.distribution = distribution
         self.class_names = self.class_range.keys()
 
     def __eq__(self, other):
@@ -54,7 +55,8 @@ class DetectionConfig:
             'min_recall': self.min_recall,
             'min_precision': self.min_precision,
             'max_boxes_per_sample': self.max_boxes_per_sample,
-            'mean_ap_weight': self.mean_ap_weight
+            'mean_ap_weight': self.mean_ap_weight,
+            'distribution': self.distribution
         }
 
     @classmethod
@@ -67,7 +69,8 @@ class DetectionConfig:
                    content['min_recall'],
                    content['min_precision'],
                    content['max_boxes_per_sample'],
-                   content['mean_ap_weight'])
+                   content['mean_ap_weight'],
+                   content['distribution'] if 'distribution' in content else 'gaussian')
 
     @property
     def dist_fcn_callable(self):
