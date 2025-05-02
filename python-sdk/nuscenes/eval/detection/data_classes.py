@@ -292,11 +292,17 @@ class DetectionMetrics:
         Compute the nuScenes detection score (NDS, weighted sum of the individual scores).
         :return: The NDS.
         """
+        scores_to_ignore = ['nll_gauss_error_all', 'trans_gauss_err', 'bbox_gauss_err']
+        relevant_num_keys = 0
         # Summarize.
-        total = float(self.cfg.mean_ap_weight * self.mean_ap + np.sum(list(self.tp_scores.values())))
+        total = float(self.cfg.mean_ap_weight * self.mean_ap)
+        for score_name, val in self.tp_scores.items():
+            if score_name not in scores_to_ignore:
+                relevant_num_keys +=1
+                total += val
 
         # Normalize.
-        total = total / float(self.cfg.mean_ap_weight + len(self.tp_scores.keys()))
+        total = total / float(self.cfg.mean_ap_weight + relevant_num_keys)
 
         return total
 
