@@ -111,9 +111,10 @@ class DetectionEval:
         if self.verbose:
             print('Accumulating metric data...')
         metric_data_list = DetectionMetricDataList()
+        print(f'Uncertainty distribution in eval: {self.cfg.distribution}')
         for class_name in self.cfg.class_names:
             for dist_th in self.cfg.dist_ths:
-                md = accumulate(self.gt_boxes, self.pred_boxes, class_name, self.cfg.dist_fcn_callable, dist_th)
+                md = accumulate(self.gt_boxes, self.pred_boxes, class_name, self.cfg.dist_fcn_callable, dist_th, uncertainty_distribution=self.cfg.distribution)
                 metric_data_list.set(class_name, dist_th, md)
 
         # -----------------------------------
