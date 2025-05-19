@@ -140,7 +140,7 @@ class DetectionEval:
                     tp = calc_tp(metric_data, self.cfg.min_recall, metric_name)
                 metrics.add_label_tp(class_name, metric_name, tp)
 
-            axes = ['x', 'y', 'w', 'l']
+            axes = ['x', 'y', 'v_x', 'v_y']
             for ci, interval in metric_data.ci_evaluation.items():
                 for i, axis in enumerate(axes): 
                     name = f"CI_{ci}_of_{axis}"
@@ -236,7 +236,8 @@ class DetectionEval:
             'attr_err': 'mAAE',
             'nll_gauss_error_all': 'mGNLL',
             'trans_gauss_err': 'mNLL_POS', 
-            'bbox_gauss_err': 'mNLL_BBOX'
+            'vel_gauss_err': 'mNLL_VEL',
+            'rot_gauss_err': 'mNLL_ROT'
         }
         for tp_name, tp_val in metrics_summary['tp_errors'].items():
             print('%s: %.4f' % (err_name_mapping[tp_name], tp_val))
@@ -246,7 +247,7 @@ class DetectionEval:
         # Print per-class metrics.
         print()
         print('Per-class results:')
-        print('Object Class\tAP\tATE\tASE\tAOE\tAVE\tAAE\tmGNLL\tmNLL_POS\tmNLL_BBOX')
+        print('Object Class\tAP\tATE\tASE\tAOE\tAVE\tAAE\tmGNLL\tmNLL_POS\tmNLL_VEL')
         class_aps = metrics_summary['mean_dist_aps']
         class_tps = metrics_summary['label_tp_errors']
         for class_name in class_aps.keys():
@@ -259,7 +260,7 @@ class DetectionEval:
                      class_tps[class_name]['attr_err'],
                      class_tps[class_name]['nll_gauss_error_all'],
                      class_tps[class_name]['trans_gauss_err'],
-                     class_tps[class_name]['bbox_gauss_err']))
+                     class_tps[class_name]['vel_gauss_err']))
 
         return metrics_summary
 

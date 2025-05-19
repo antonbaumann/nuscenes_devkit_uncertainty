@@ -72,7 +72,7 @@ def accumulate(gt_boxes: EvalBoxes,
                   'vel_magn': [],
                   'nll_gauss_error_all': [],
                   'trans_gauss_err': [],
-                  'bbox_gauss_err': [],
+                  'vel_gauss_err': [],
                   'ci_gauss_err': ci_accumulation}
 
     # ---------------------------------------------
@@ -114,9 +114,9 @@ def accumulate(gt_boxes: EvalBoxes,
 
             # Evaluate uncertainty metrics
             nll_error = gaussian_nll_error(gt_box_match, pred_box)
-            match_data['nll_gauss_error_all'].append(nll_error[[0, 1, 3, 4]].mean())
+            match_data['nll_gauss_error_all'].append(nll_error.mean())
             match_data['trans_gauss_err'].append(nll_error[:2].mean())
-            match_data['bbox_gauss_err'].append(nll_error[3:5].mean())
+            match_data['vel_gauss_err'].append(nll_error[2:].mean())
             
             for ci in confidence_interval_values:
                 match_data['ci_gauss_err'][ci].append(within_cofidence_interval(gt_box_match, pred_box, ci))
@@ -199,7 +199,8 @@ def accumulate(gt_boxes: EvalBoxes,
                                attr_err=match_data['attr_err'],
                                nll_gauss_error_all = match_data['nll_gauss_error_all'],
                                trans_gauss_err = match_data['trans_gauss_err'],
-                               bbox_gauss_err = match_data['bbox_gauss_err'],
+                               rot_gauss_err = match_data['vel_gauss_err'],
+                               vel_gauss_err = match_data['vel_gauss_err'],
                                ci_evaluation = match_data['ci_gauss_err']
                                )
 

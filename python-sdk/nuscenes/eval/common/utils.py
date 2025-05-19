@@ -29,9 +29,9 @@ def within_cofidence_interval(gt_box: EvalBox, pred_box: EvalBox, confidence: fl
     distance_from_mean = z_score * std_dev
     
     full_dist = np.abs(np.array(pred_box.translation) - np.array(gt_box.translation))
-    bbox_dist = np.abs(np.array(pred_box.size) - np.array(gt_box.size))
+    vel_difference = np.abs(np.array(pred_box.velocity) - np.array(gt_box.velocity))
 
-    return np.concatenate([full_dist[:2] <= distance_from_mean[:2], bbox_dist[:2] <= distance_from_mean[3:5]]) + 0 
+    return np.concatenate([full_dist[:2] <= distance_from_mean[:2], vel_difference <= distance_from_mean[7:]]) + 0 
 
 
 def gaussian_nll_error(gt_box: EvalBox, pred_box: EvalBox) -> np.ndarray:
@@ -46,9 +46,9 @@ def gaussian_nll_error(gt_box: EvalBox, pred_box: EvalBox) -> np.ndarray:
     log_uncertainties = np.log(uncertainties)
     
     full_dist = (np.array(pred_box.translation) - np.array(gt_box.translation)) ** 2
-    bbox_dist = (np.array(pred_box.size) - np.array(gt_box.size)) ** 2
-    out_dist = np.concatenate([full_dist, bbox_dist])
-    return out_dist / uncertainties[:6] + log_uncertainties[:6]
+    vel_diff = (np.array(pred_box.velocity) - np.array(gt_box.velocity)) ** 2
+    out_dist = np.concatenate([full_dist[:2], vel_diff])
+    return out_dist / uncertainties[[0, 1, 7, 8]] + log_uncertainties[[0, 1, 7, 8]]
 
 
 def center_distance(gt_box: EvalBox, pred_box: EvalBox) -> float:

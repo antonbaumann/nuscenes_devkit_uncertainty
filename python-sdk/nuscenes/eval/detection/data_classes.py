@@ -94,7 +94,8 @@ class DetectionMetricData(MetricData):
                  attr_err: np.array,
                  nll_gauss_error_all: np.array,
                  trans_gauss_err: np.array,
-                 bbox_gauss_err: np.array,
+                 rot_gauss_err: np.array,
+                 vel_gauss_err: np.array,
                  ci_evaluation: dict):
 
         # Assert lengths.
@@ -108,7 +109,8 @@ class DetectionMetricData(MetricData):
         assert len(attr_err) == self.nelem
         assert len(nll_gauss_error_all) == self.nelem
         assert len(trans_gauss_err) == self.nelem
-        assert len(bbox_gauss_err) == self.nelem
+        # assert len(rot_gauss_err) == self.nelem TODO: add rot_gauss_err to the metrics
+        assert len(vel_gauss_err) == self.nelem
 
         # Assert ordering.
         assert all(confidence == sorted(confidence, reverse=True))  # Confidences should be descending.
@@ -125,7 +127,8 @@ class DetectionMetricData(MetricData):
         self.attr_err = attr_err
         self.nll_gauss_error_all = nll_gauss_error_all
         self.trans_gauss_err = trans_gauss_err
-        self.bbox_gauss_err = bbox_gauss_err
+        self.rot_gauss_err = rot_gauss_err
+        self.vel_gauss_err = vel_gauss_err
         self.ci_evaluation = ci_evaluation
 
     def __eq__(self, other):
@@ -166,7 +169,8 @@ class DetectionMetricData(MetricData):
             'attr_err': self.attr_err.tolist(),
             'nll_gauss_error_all': self.nll_gauss_error_all.tolist(),
             'trans_gauss_err': self.trans_gauss_err.tolist(),
-            'bbox_gauss_err': self.bbox_gauss_err.tolist(),
+            'rot_gauss_err': self.rot_gauss_err.tolist(),
+            'vel_gauss_err': self.vel_gauss_err.tolist(),
             'ci_evaluation': self.ci_evaluation
         }
 
@@ -183,7 +187,8 @@ class DetectionMetricData(MetricData):
                    attr_err=np.array(content['attr_err']),
                    nll_gauss_error_all=np.array(content['nll_gauss_error_all']),
                    trans_gauss_err=np.array(content['trans_gauss_err']),
-                   bbox_gauss_err=np.array(content['bbox_gauss_err']),
+                   rot_gauss_err=np.array(content['rot_gauss_err']),
+                   vel_gauss_err=np.array(content['vel_gauss_err']),
                    ci_evaluation=content['ci_evaluation'])
 
     @classmethod
@@ -199,7 +204,8 @@ class DetectionMetricData(MetricData):
                    attr_err=np.ones(cls.nelem),
                    nll_gauss_error_all=np.ones(cls.nelem),
                    trans_gauss_err=np.ones(cls.nelem),
-                   bbox_gauss_err=np.ones(cls.nelem),
+                   vel_gauss_err=np.ones(cls.nelem),
+                   rot_gauss_err=np.ones(cls.nelem),
                    ci_evaluation={})
 
     @classmethod
@@ -215,7 +221,8 @@ class DetectionMetricData(MetricData):
                    attr_err=np.random.random(cls.nelem),
                    nll_gauss_error_all=np.random.random(cls.nelem),
                    trans_gauss_err=np.random.random(cls.nelem),
-                   bbox_gauss_err=np.random.random(cls.nelem),
+                   rot_gauss_err=np.random.random(cls.nelem),
+                   vel_gauss_err=np.random.random(cls.nelem),
                    ci_evaluation={})
 
 
@@ -289,11 +296,17 @@ class DetectionMetrics:
         Compute the nuScenes detection score (NDS, weighted sum of the individual scores).
         :return: The NDS.
         """
+        scores_to_ignore = ['nll_gauss_error_all', 'trans_gauss_err', 'vel_gauss_err', 'rot_gauss_err']
+        relevant_num_keys = 0
         # Summarize.
-        total = float(self.cfg.mean_ap_weight * self.mean_ap + np.sum(list(self.tp_scores.values())))
+        total = float(self.cfg.mean_ap_weight * self.mean_ap)
+        for score_name, val in self.tp_scores.items():
+            if score_name not in scores_to_ignore:
+                relevant_num_keys +=1
+                total += val
 
         # Normalize.
-        total = total / float(self.cfg.mean_ap_weight + len(self.tp_scores.keys()))
+        total = total / float(self.cfg.mean_ap_weight + relevant_num_keys)
 
         return total
 
