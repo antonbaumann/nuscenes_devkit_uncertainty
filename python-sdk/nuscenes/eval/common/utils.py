@@ -15,7 +15,7 @@ DetectionBox = Any  # Workaround as direct imports lead to cyclic dependencies.
 
 def within_cofidence_interval(gt_box: EvalBox, pred_box: EvalBox, confidence: float, distribution = stats.norm):
     """
-    Determines whether bounding box position (x, y) and extent (w, l) are within given confidence interval.
+    Determines whether bounding box position (x, y) and extent (v_x, v_y) are within given confidence interval.
     :param gt_box: GT annotation sample.
     :param pred_box: Predicted sample.
     :confidence: Confidence percentage in (0; 1.0)
