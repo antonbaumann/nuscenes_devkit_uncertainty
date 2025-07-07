@@ -34,7 +34,7 @@ def within_cofidence_interval(gt_box: EvalBox, pred_box: EvalBox, confidence: fl
     return np.concatenate([full_dist[:2] <= distance_from_mean[:2], vel_difference <= distance_from_mean[7:]]) + 0 
 
 
-def gaussian_nll_error(gt_box: EvalBox, pred_box: EvalBox) -> np.ndarray:
+def gaussian_nll_error(gt_box: EvalBox, pred_box: EvalBox, epsilon: float=1e-6) -> np.ndarray:
     """
     Gaussian negative log-likelihood metric for position and bbox parameters
     :param gt_box: GT annotation sample.
@@ -42,7 +42,9 @@ def gaussian_nll_error(gt_box: EvalBox, pred_box: EvalBox) -> np.ndarray:
     :return: Gaussian NLL difference for position and bounding box parameters.
     """
     uncertainties = np.array(pred_box.uncertainty)
-    uncertainties[uncertainties==0] = 1.0
+
+    # clip uncertainties to avoid division by zero.
+    uncertainties = np.clip(uncertainties, a_min=epsilon, a_max=None)
     log_uncertainties = np.log(uncertainties)
     
     full_dist = (np.array(pred_box.translation) - np.array(gt_box.translation)) ** 2
