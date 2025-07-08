@@ -43,6 +43,11 @@ def gaussian_nll_error(gt_box: EvalBox, pred_box: EvalBox, epsilon: float=1e-6) 
     """
     uncertainties = np.array(pred_box.uncertainty)
 
+    # assert no nans in uncertainties.
+    assert not np.isnan(uncertainties).any(), 'Error: uncertainties contain NaNs.'
+    assert not np.isinf(uncertainties).any(), 'Error: uncertainties contain Infs.'
+    assert all(uncertainties >= 0), 'Error: uncertainties must be non-negative.'
+
     # clip uncertainties to avoid division by zero.
     uncertainties = np.clip(uncertainties, a_min=epsilon, a_max=None)
     log_uncertainties = np.log(uncertainties)
