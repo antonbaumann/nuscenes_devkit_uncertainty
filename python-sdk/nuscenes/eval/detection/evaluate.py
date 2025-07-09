@@ -239,7 +239,8 @@ class DetectionEval:
             'nll_gauss_error_all': 'mGNLL',
             'trans_gauss_err': 'mNLL_POS', 
             'vel_gauss_err': 'mNLL_VEL',
-            'rot_gauss_err': 'mNLL_ROT'
+            'rot_gauss_err': 'mNLL_ROT',
+            'size_gauss_err': 'mNLL_SIZE',
         }
         for tp_name, tp_val in metrics_summary['tp_errors'].items():
             print('%s: %.4f' % (err_name_mapping[tp_name], tp_val))
@@ -249,11 +250,11 @@ class DetectionEval:
         # Print per-class metrics.
         print()
         print('Per-class results:')
-        print('Object Class\tAP\tATE\tASE\tAOE\tAVE\tAAE\tmGNLL\tmNLL_POS\tmNLL_VEL')
+        print('Object Class\tAP\tATE\tASE\tAOE\tAVE\tAAE\tmGNLL\tmNLL_POS\tmNLL_VEL\tmNLL_SIZE')
         class_aps = metrics_summary['mean_dist_aps']
         class_tps = metrics_summary['label_tp_errors']
         for class_name in class_aps.keys():
-            print('%s\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f'
+            print('%s\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f'
                   % (class_name, class_aps[class_name],
                      class_tps[class_name]['trans_err'],
                      class_tps[class_name]['scale_err'],
@@ -262,7 +263,10 @@ class DetectionEval:
                      class_tps[class_name]['attr_err'],
                      class_tps[class_name]['nll_gauss_error_all'],
                      class_tps[class_name]['trans_gauss_err'],
-                     class_tps[class_name]['vel_gauss_err']))
+                     class_tps[class_name]['vel_gauss_err'],
+                     class_tps[class_name]['size_gauss_err']
+                    )
+            )
 
         return metrics_summary
 
