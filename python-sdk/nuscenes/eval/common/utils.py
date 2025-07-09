@@ -41,17 +41,36 @@ def gaussian_nll_error(gt_box: EvalBox, pred_box: EvalBox, epsilon: float=1e-6) 
     :param pred_box: Predicted sample.
     :return: Gaussian NLL difference for position and bounding box parameters.
     """
-    uncertainties = np.array(pred_box.uncertainty)
-    
-    # clip uncertainties to avoid division by zero.
-    uncertainties = np.clip(uncertainties, a_min=epsilon, a_max=None)
-    log_uncertainties = np.log(uncertainties)
-    
-    full_dist = (np.array(pred_box.translation) - np.array(gt_box.translation)) ** 2
-    vel_diff = (np.array(pred_box.velocity) - np.array(gt_box.velocity)) ** 2
-    out_dist = np.concatenate([full_dist[:2], vel_diff])
-    return out_dist / uncertainties[[0, 1, 7, 8]] + log_uncertainties[[0, 1, 7, 8]]
+    # [ x, y, z, w, l, h, rot, vx, vy ]
+    #   0  1  2  3  4  5   6    7   8
+    variances = np.array(pred_box.uncertainty)
+    # clip variances to avoid division by zero.
+    variances = np.clip(variances, a_min=epsilon, a_max=None)
+    log_variances = np.log(variances)
 
+    # extract variances for position and velocity.
+    pos_var, pos_logvar = variances[[0, 1]], log_variances[[0, 1]]
+    vel_var, vel_logvar = variances[[7, 8]], log_variances[[7, 8]]
+    size_var, size_logvar = variances[[3, 4, 5]], log_variances[[3, 4, 5]]
+    
+    # only consider (x, y) for the translation
+    pos_norm_squared = (np.array(pred_box.translation[:2]) - np.array(gt_box.translation[:2])) ** 2
+
+    # velocity is (dx, dy)
+    vel_norm_squared = (np.array(pred_box.velocity) - np.array(gt_box.velocity)) ** 2
+
+    # size is (w, l, h)
+    size_norm_squared = (np.array(pred_box.size) - np.array(gt_box.size)) ** 2
+
+    # Compute the negative log-likelihood for position and velocity
+    # todo: the correct formula of NLL is 0.5 * (norm_squared / variance + log_variance + np.log(2 * np.pi))
+    #       but we omit the constant term 0.5 * np.log(2 * np.pi) for simplicity.
+    #       Keeping it like this for now to be consistent with the original implementation.
+    nll_pos = pos_norm_squared / pos_var + pos_logvar
+    nll_vel = vel_norm_squared / vel_var + vel_logvar
+    nll_size = size_norm_squared / size_var + size_logvar
+
+    return nll_pos, nll_vel, nll_size
 
 def center_distance(gt_box: EvalBox, pred_box: EvalBox) -> float:
     """

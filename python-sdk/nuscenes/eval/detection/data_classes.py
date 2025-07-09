@@ -86,20 +86,23 @@ class DetectionMetricData(MetricData):
 
     nelem = 101
 
-    def __init__(self,
-                 recall: np.array,
-                 precision: np.array,
-                 confidence: np.array,
-                 trans_err: np.array,
-                 vel_err: np.array,
-                 scale_err: np.array,
-                 orient_err: np.array,
-                 attr_err: np.array,
-                 nll_gauss_error_all: np.array,
-                 trans_gauss_err: np.array,
-                 rot_gauss_err: np.array,
-                 vel_gauss_err: np.array,
-                 ci_evaluation: dict):
+    def __init__(
+        self,
+        recall: np.array,
+        precision: np.array,
+        confidence: np.array,
+        trans_err: np.array,
+        vel_err: np.array,
+        scale_err: np.array,
+        orient_err: np.array,
+        attr_err: np.array,
+        nll_gauss_error_all: np.array,
+        trans_gauss_err: np.array,
+        rot_gauss_err: np.array,
+        vel_gauss_err: np.array,
+        size_gauss_err: np.array,
+        ci_evaluation: dict,
+    ):
 
         # Assert lengths.
         assert len(recall) == self.nelem
@@ -114,6 +117,7 @@ class DetectionMetricData(MetricData):
         assert len(trans_gauss_err) == self.nelem
         # assert len(rot_gauss_err) == self.nelem TODO: add rot_gauss_err to the metrics
         assert len(vel_gauss_err) == self.nelem
+        assert len(size_gauss_err) == self.nelem
 
         # Assert ordering.
         assert all(confidence == sorted(confidence, reverse=True))  # Confidences should be descending.
@@ -132,6 +136,7 @@ class DetectionMetricData(MetricData):
         self.trans_gauss_err = trans_gauss_err
         self.rot_gauss_err = rot_gauss_err
         self.vel_gauss_err = vel_gauss_err
+        self.size_gauss_err = size_gauss_err
         self.ci_evaluation = ci_evaluation
 
     def __eq__(self, other):
@@ -174,7 +179,8 @@ class DetectionMetricData(MetricData):
             'trans_gauss_err': self.trans_gauss_err.tolist(),
             'rot_gauss_err': self.rot_gauss_err.tolist(),
             'vel_gauss_err': self.vel_gauss_err.tolist(),
-            'ci_evaluation': self.ci_evaluation
+            'size_gauss_err': self.size_gauss_err.tolist(),
+            'ci_evaluation': self.ci_evaluation,
         }
 
     @classmethod
@@ -192,6 +198,7 @@ class DetectionMetricData(MetricData):
                    trans_gauss_err=np.array(content['trans_gauss_err']),
                    rot_gauss_err=np.array(content['rot_gauss_err']),
                    vel_gauss_err=np.array(content['vel_gauss_err']),
+                   size_gauss_err=np.array(content['size_gauss_err']),
                    ci_evaluation=content['ci_evaluation'])
 
     @classmethod
@@ -209,6 +216,7 @@ class DetectionMetricData(MetricData):
                    trans_gauss_err=np.ones(cls.nelem),
                    vel_gauss_err=np.ones(cls.nelem),
                    rot_gauss_err=np.ones(cls.nelem),
+                   size_gauss_err=np.ones(cls.nelem),
                    ci_evaluation={})
 
     @classmethod
@@ -226,6 +234,7 @@ class DetectionMetricData(MetricData):
                    trans_gauss_err=np.random.random(cls.nelem),
                    rot_gauss_err=np.random.random(cls.nelem),
                    vel_gauss_err=np.random.random(cls.nelem),
+                   size_gauss_err=np.random.random(cls.nelem),
                    ci_evaluation={})
 
 
@@ -299,7 +308,7 @@ class DetectionMetrics:
         Compute the nuScenes detection score (NDS, weighted sum of the individual scores).
         :return: The NDS.
         """
-        scores_to_ignore = ['nll_gauss_error_all', 'trans_gauss_err', 'vel_gauss_err', 'rot_gauss_err']
+        scores_to_ignore = ['nll_gauss_error_all', 'trans_gauss_err', 'vel_gauss_err', 'rot_gauss_err', 'size_gauss_err']
         relevant_num_keys = 0
         # Summarize.
         total = float(self.cfg.mean_ap_weight * self.mean_ap)

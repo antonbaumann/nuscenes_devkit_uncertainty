@@ -7,6 +7,7 @@ import os
 import random
 import time
 from typing import Tuple, Dict, Any
+from tqdm import tqdm
 
 import numpy as np
 
@@ -112,7 +113,7 @@ class DetectionEval:
             print('Accumulating metric data...')
         metric_data_list = DetectionMetricDataList()
         print(f'Uncertainty distribution in eval: {self.cfg.distribution}')
-        for class_name in self.cfg.class_names:
+        for class_name in tqdm(self.cfg.class_names, desc='Accumulating metric data'):
             for dist_th in self.cfg.dist_ths:
                 md = accumulate(self.gt_boxes, self.pred_boxes, class_name, self.cfg.dist_fcn_callable, dist_th, uncertainty_distribution=self.cfg.distribution)
                 metric_data_list.set(class_name, dist_th, md)
@@ -123,7 +124,7 @@ class DetectionEval:
         if self.verbose:
             print('Calculating metrics...')
         metrics = DetectionMetrics(self.cfg)
-        for class_name in self.cfg.class_names:
+        for class_name in tqdm(self.cfg.class_names, desc='Calculating metrics'):
             # Compute APs.
             for dist_th in self.cfg.dist_ths:
                 metric_data = metric_data_list[(class_name, dist_th)]

@@ -2,6 +2,7 @@
 # Code written by Oscar Beijbom, 2019.
 
 from typing import Callable, List
+from tqdm import tqdm
 
 import numpy as np
 from scipy import stats
@@ -65,18 +66,22 @@ def accumulate(gt_boxes: EvalBoxes,
     distribution = stats.laplace if uncertainty_distribution == 'laplace' else stats.norm
 
     # match_data holds the extra metrics we calculate for each match.
-    match_data = {'trans_err': [],
-                  'vel_err': [],
-                  'scale_err': [],
-                  'orient_err': [],
-                  'attr_err': [],
-                  'conf': [],
-                  'ego_dist': [],
-                  'vel_magn': [],
-                  'nll_gauss_error_all': [],
-                  'trans_gauss_err': [],
-                  'vel_gauss_err': [],
-                  'ci_gauss_err': ci_accumulation}
+    match_data = {
+        # original metrics
+        'trans_err': [],
+        'vel_err': [],
+        'scale_err': [],
+        'orient_err': [],
+        'attr_err': [],
+        'conf': [],
+        'ego_dist': [],
+        'vel_magn': [],
+        'nll_gauss_error_all': [],
+        'trans_gauss_err': [],
+        'vel_gauss_err': [],
+        'size_gauss_err': [],
+        'ci_gauss_err': ci_accumulation,
+    }
 
     # ---------------------------------------------
     # Match and accumulate match data.
@@ -116,10 +121,12 @@ def accumulate(gt_boxes: EvalBoxes,
             match_data['scale_err'].append(1 - scale_iou(gt_box_match, pred_box))
 
             # Evaluate uncertainty metrics
-            nll_error = gaussian_nll_error(gt_box_match, pred_box)
-            match_data['nll_gauss_error_all'].append(nll_error.mean())
-            match_data['trans_gauss_err'].append(nll_error[:2].mean())
-            match_data['vel_gauss_err'].append(nll_error[2:].mean())
+            nll_pos, nll_vel, nll_size = gaussian_nll_error(gt_box_match, pred_box)
+            nll_total = np.concatenate([nll_pos, nll_vel], axis=-1)
+            match_data['nll_gauss_error_all'].append(nll_total.mean())
+            match_data['trans_gauss_err'].append(nll_pos.mean())
+            match_data['vel_gauss_err'].append(nll_vel.mean())
+            match_data['size_gauss_err'].append(nll_size.mean())
             
             for ci in confidence_interval_values:
                 match_data['ci_gauss_err'][ci].append(within_cofidence_interval(gt_box_match, pred_box, ci, distribution=distribution))
@@ -168,7 +175,7 @@ def accumulate(gt_boxes: EvalBoxes,
     # ---------------------------------------------
 
     for key in match_data.keys():
-        if key == "conf":
+        if key in ["conf"]:
             continue  # Confidence is used as reference to align with fp and tp. So skip in this step.
         
         elif key == "ci_gauss_err":
@@ -189,23 +196,27 @@ def accumulate(gt_boxes: EvalBoxes,
             # Then interpolate based on the confidences. (Note reversing since np.interp needs increasing arrays)
             match_data[key] = np.interp(conf[::-1], match_data['conf'][::-1], tmp[::-1])[::-1]
 
+    # todo: compute ECE
+
     # ---------------------------------------------
     # Done. Instantiate MetricData and return
     # ---------------------------------------------
-    return DetectionMetricData(recall=rec,
-                               precision=prec,
-                               confidence=conf,
-                               trans_err=match_data['trans_err'],
-                               vel_err=match_data['vel_err'],
-                               scale_err=match_data['scale_err'],
-                               orient_err=match_data['orient_err'],
-                               attr_err=match_data['attr_err'],
-                               nll_gauss_error_all = match_data['nll_gauss_error_all'],
-                               trans_gauss_err = match_data['trans_gauss_err'],
-                               rot_gauss_err = match_data['vel_gauss_err'],
-                               vel_gauss_err = match_data['vel_gauss_err'],
-                               ci_evaluation = match_data['ci_gauss_err']
-                               )
+    return DetectionMetricData(
+        recall=rec,
+        precision=prec,
+        confidence=conf,
+        trans_err=match_data['trans_err'],
+        vel_err=match_data['vel_err'],
+        scale_err=match_data['scale_err'],
+        orient_err=match_data['orient_err'],
+        attr_err=match_data['attr_err'],
+        nll_gauss_error_all = match_data['nll_gauss_error_all'],
+        trans_gauss_err = match_data['trans_gauss_err'],
+        rot_gauss_err = match_data['vel_gauss_err'],
+        vel_gauss_err = match_data['vel_gauss_err'],
+        size_gauss_err = match_data['size_gauss_err'],
+        ci_evaluation = match_data['ci_gauss_err'],
+    )
 
 
 def calc_ap(md: DetectionMetricData, min_recall: float, min_precision: float) -> float:
