@@ -153,7 +153,7 @@ class DetectionEval:
                     metrics.add_label_tp(class_name, name, tp)
 
             # compute ECE
-            for target_name, calibration_df in metric_data.prec_rec_dfs.items():
+            for target_name, calibration_df in metric_data.calib_dfs.items():
                 ece = expected_calibration_error(calibration_df)
                 metrics.add_label_tp(class_name, target_name, ece)
 
