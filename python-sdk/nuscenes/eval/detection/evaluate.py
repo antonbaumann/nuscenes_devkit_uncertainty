@@ -276,7 +276,7 @@ class DetectionEval:
                     )
             )
 
-        print('Mean ECE: %.4f' % metrics_summary['mean_label_ece'])
+        print('Mean ECE:')
         for class_name, ece in metrics_summary['mean_label_ece'].items():
             print('%s: %.4f' % (class_name, ece))
         return metrics_summary
