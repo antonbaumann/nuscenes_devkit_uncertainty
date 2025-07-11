@@ -5,6 +5,7 @@ from collections import defaultdict
 from typing import List, Dict, Tuple
 
 import numpy as np
+import pandas as pd
 
 from nuscenes.eval.common.data_classes import MetricData, EvalBox
 from nuscenes.eval.common.utils import center_distance
@@ -102,6 +103,8 @@ class DetectionMetricData(MetricData):
         vel_gauss_err: np.array,
         size_gauss_err: np.array,
         ci_evaluation: dict,
+        pred_rec_dfs: Dict[str, pd.DataFrame] | None = None,
+        calib_dfs: Dict[str, pd.DataFrame] | None = None,
     ):
 
         # Assert lengths.
@@ -138,6 +141,8 @@ class DetectionMetricData(MetricData):
         self.vel_gauss_err = vel_gauss_err
         self.size_gauss_err = size_gauss_err
         self.ci_evaluation = ci_evaluation
+        self.pred_rec_dfs = pred_rec_dfs if pred_rec_dfs is not None else {}
+        self.calib_dfs = calib_dfs if calib_dfs is not None else {}
 
     def __eq__(self, other):
         eq = True
@@ -181,61 +186,80 @@ class DetectionMetricData(MetricData):
             'vel_gauss_err': self.vel_gauss_err.tolist(),
             'size_gauss_err': self.size_gauss_err.tolist(),
             'ci_evaluation': self.ci_evaluation,
+            'pred_rec_dfs': {k: v.to_dict(orient='split') for k, v in self.pred_rec_dfs.items()},
+            'calib_dfs': {k: v.to_dict(orient='split') for k, v in self.calib_dfs.items()}
         }
 
     @classmethod
     def deserialize(cls, content: dict):
         """ Initialize from serialized content. """
-        return cls(recall=np.array(content['recall']),
-                   precision=np.array(content['precision']),
-                   confidence=np.array(content['confidence']),
-                   trans_err=np.array(content['trans_err']),
-                   vel_err=np.array(content['vel_err']),
-                   scale_err=np.array(content['scale_err']),
-                   orient_err=np.array(content['orient_err']),
-                   attr_err=np.array(content['attr_err']),
-                   nll_gauss_error_all=np.array(content['nll_gauss_error_all']),
-                   trans_gauss_err=np.array(content['trans_gauss_err']),
-                   rot_gauss_err=np.array(content['rot_gauss_err']),
-                   vel_gauss_err=np.array(content['vel_gauss_err']),
-                   size_gauss_err=np.array(content['size_gauss_err']),
-                   ci_evaluation=content['ci_evaluation'])
+
+        def df_dict_to_dfs(d):
+            return {k: pd.DataFrame(**v) for k, v in d.items()}
+    
+        return cls(
+            recall=np.array(content['recall']),
+            precision=np.array(content['precision']),
+            confidence=np.array(content['confidence']),
+            trans_err=np.array(content['trans_err']),
+            vel_err=np.array(content['vel_err']),
+            scale_err=np.array(content['scale_err']),
+            orient_err=np.array(content['orient_err']),
+            attr_err=np.array(content['attr_err']),
+            nll_gauss_error_all=np.array(content['nll_gauss_error_all']),
+            trans_gauss_err=np.array(content['trans_gauss_err']),
+            rot_gauss_err=np.array(content['rot_gauss_err']),
+            vel_gauss_err=np.array(content['vel_gauss_err']),
+            size_gauss_err=np.array(content['size_gauss_err']),
+            ci_evaluation=content['ci_evaluation'],
+            pred_rec_dfs=df_dict_to_dfs(content.get('pred_rec_dfs', {})),
+            calib_dfs=df_dict_to_dfs(content.get('calib_dfs', {})),
+        )
+    
 
     @classmethod
     def no_predictions(cls):
         """ Returns a md instance corresponding to having no predictions. """
-        return cls(recall=np.linspace(0, 1, cls.nelem),
-                   precision=np.zeros(cls.nelem),
-                   confidence=np.zeros(cls.nelem),
-                   trans_err=np.ones(cls.nelem),
-                   vel_err=np.ones(cls.nelem),
-                   scale_err=np.ones(cls.nelem),
-                   orient_err=np.ones(cls.nelem),
-                   attr_err=np.ones(cls.nelem),
-                   nll_gauss_error_all=np.ones(cls.nelem),
-                   trans_gauss_err=np.ones(cls.nelem),
-                   vel_gauss_err=np.ones(cls.nelem),
-                   rot_gauss_err=np.ones(cls.nelem),
-                   size_gauss_err=np.ones(cls.nelem),
-                   ci_evaluation={})
+        return cls(
+            recall=np.linspace(0, 1, cls.nelem),
+            precision=np.zeros(cls.nelem),
+            confidence=np.zeros(cls.nelem),
+            trans_err=np.ones(cls.nelem),
+            vel_err=np.ones(cls.nelem),
+            scale_err=np.ones(cls.nelem),
+            orient_err=np.ones(cls.nelem),
+            attr_err=np.ones(cls.nelem),
+            nll_gauss_error_all=np.ones(cls.nelem),
+            trans_gauss_err=np.ones(cls.nelem),
+            vel_gauss_err=np.ones(cls.nelem),
+            rot_gauss_err=np.ones(cls.nelem),
+            size_gauss_err=np.ones(cls.nelem),
+            ci_evaluation={},
+            pred_rec_dfs={},
+            calib_dfs={},
+        )
 
     @classmethod
     def random_md(cls):
         """ Returns an md instance corresponding to a random results. """
-        return cls(recall=np.linspace(0, 1, cls.nelem),
-                   precision=np.random.random(cls.nelem),
-                   confidence=np.linspace(0, 1, cls.nelem)[::-1],
-                   trans_err=np.random.random(cls.nelem),
-                   vel_err=np.random.random(cls.nelem),
-                   scale_err=np.random.random(cls.nelem),
-                   orient_err=np.random.random(cls.nelem),
-                   attr_err=np.random.random(cls.nelem),
-                   nll_gauss_error_all=np.random.random(cls.nelem),
-                   trans_gauss_err=np.random.random(cls.nelem),
-                   rot_gauss_err=np.random.random(cls.nelem),
-                   vel_gauss_err=np.random.random(cls.nelem),
-                   size_gauss_err=np.random.random(cls.nelem),
-                   ci_evaluation={})
+        return cls(
+            recall=np.linspace(0, 1, cls.nelem),
+            precision=np.random.random(cls.nelem),
+            confidence=np.linspace(0, 1, cls.nelem)[::-1],
+            trans_err=np.random.random(cls.nelem),
+            vel_err=np.random.random(cls.nelem),
+            scale_err=np.random.random(cls.nelem),
+            orient_err=np.random.random(cls.nelem),
+            attr_err=np.random.random(cls.nelem),
+            nll_gauss_error_all=np.random.random(cls.nelem),
+            trans_gauss_err=np.random.random(cls.nelem),
+            rot_gauss_err=np.random.random(cls.nelem),
+            vel_gauss_err=np.random.random(cls.nelem),
+            size_gauss_err=np.random.random(cls.nelem),
+            ci_evaluation={},
+            pred_rec_dfs={},
+            calib_dfs={},
+        )
 
 
 class DetectionMetrics:
@@ -367,18 +391,20 @@ class DetectionMetrics:
 class DetectionBox(EvalBox):
     """ Data class used during detection evaluation. Can be a prediction or ground truth."""
 
-    def __init__(self,
-                 sample_token: str = "",
-                 translation: Tuple[float, float, float] = (0, 0, 0),
-                 size: Tuple[float, float, float] = (0, 0, 0),
-                 rotation: Tuple[float, float, float, float] = (0, 0, 0, 0),
-                 velocity: Tuple[float, float] = (0, 0),
-                 ego_dist: float = 0.0,  # Distance to ego vehicle in meters.
-                 num_pts: int = -1,  # Nbr. LIDAR or RADAR inside the box. Only for gt boxes.
-                 detection_name: str = 'car',  # The class name used in the detection challenge.
-                 detection_score: float = -1.0,  # GT samples do not have a score.
-                 attribute_name: str = '', # Box attribute. Each box can have at most 1 attribute.
-                 uncertainty: List[float] = []): # List of uncertainty values 
+    def __init__(
+        self,
+        sample_token: str = "",
+        translation: Tuple[float, float, float] = (0, 0, 0),
+        size: Tuple[float, float, float] = (0, 0, 0),
+        rotation: Tuple[float, float, float, float] = (0, 0, 0, 0),
+        velocity: Tuple[float, float] = (0, 0),
+        ego_dist: float = 0.0,  # Distance to ego vehicle in meters.
+        num_pts: int = -1,  # Nbr. LIDAR or RADAR inside the box. Only for gt boxes.
+        detection_name: str = 'car',  # The class name used in the detection challenge.
+        detection_score: float = -1.0,  # GT samples do not have a score.
+        attribute_name: str = '', # Box attribute. Each box can have at most 1 attribute.
+        uncertainty: List[float] = [],
+    ): # List of uncertainty values 
 
         super().__init__(sample_token, translation, size, rotation, velocity, num_pts)
 
@@ -429,17 +455,19 @@ class DetectionBox(EvalBox):
     @classmethod
     def deserialize(cls, content: dict):
         """ Initialize from serialized content. """
-        return cls(sample_token=content['sample_token'],
-                   translation=tuple(content['translation']),
-                   size=tuple(content['size']),
-                   rotation=tuple(content['rotation']),
-                   velocity=tuple(content['velocity']),
-                   ego_dist=0.0 if 'ego_dist' not in content else float(content['ego_dist']),
-                   num_pts=-1 if 'num_pts' not in content else int(content['num_pts']),
-                   detection_name=content['detection_name'],
-                   detection_score=-1.0 if 'detection_score' not in content else float(content['detection_score']),
-                   attribute_name=content['attribute_name'],
-                   uncertainty=content['uncertainty'])
+        return cls(
+            sample_token=content['sample_token'],
+            translation=tuple(content['translation']),
+            size=tuple(content['size']),
+            rotation=tuple(content['rotation']),
+            velocity=tuple(content['velocity']),
+            ego_dist=0.0 if 'ego_dist' not in content else float(content['ego_dist']),
+            num_pts=-1 if 'num_pts' not in content else int(content['num_pts']),
+            detection_name=content['detection_name'],
+            detection_score=-1.0 if 'detection_score' not in content else float(content['detection_score']),
+            attribute_name=content['attribute_name'],
+            uncertainty=content['uncertainty'],
+        )
 
 
 class DetectionMetricDataList:

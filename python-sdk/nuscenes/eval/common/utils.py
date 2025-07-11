@@ -72,6 +72,61 @@ def gaussian_nll_error(gt_box: EvalBox, pred_box: EvalBox, epsilon: float=1e-6) 
 
     return nll_pos, nll_vel, nll_size
 
+def center_offset(gt_box: EvalBox, pred_box: EvalBox) -> np.ndarray:
+    """
+    Computes the offset between the box centers (xy only).
+    :param gt_box: GT annotation sample.
+    :param pred_box: Predicted sample.
+    :return: Offset x and y.
+    """
+    offset_x = pred_box.translation[0] - gt_box.translation[0]
+    offset_y = pred_box.translation[1] - gt_box.translation[1]
+    return offset_x, offset_y
+
+def center_offset_var(gt_box: EvalBox, pred_box: EvalBox, epsilon=1e-6) -> np.ndarray:
+    """
+    Computes the variance of the offset between the box centers (xy only).
+    :param gt_box: GT annotation sample.
+    :param pred_box: Predicted sample.
+    :return: Variance of offset x and y.
+    """
+
+    # [ x, y, z, w, l, h, rot, vx, vy ]
+    #   0  1  2  3  4  5   6    7   8
+    variances = np.array(pred_box.uncertainty)
+    # clip variances to avoid division by zero.
+    variances = np.clip(variances, a_min=epsilon, a_max=None)
+    # extract variances for position x and y.
+    return variances[0], variances[1]
+    
+
+def velocity_offset(gt_box: EvalBox, pred_box: EvalBox) -> np.ndarray:
+    """
+    Computes the offset between the velocity vectors (xy only).
+    :param gt_box: GT annotation sample.
+    :param pred_box: Predicted sample.
+    :return: Offset vx and vy.
+    """
+    offset_vx = pred_box.velocity[0] - gt_box.velocity[0]
+    offset_vy = pred_box.velocity[1] - gt_box.velocity[1]
+    return offset_vx, offset_vy
+
+def velocity_offset_var(gt_box: EvalBox, pred_box: EvalBox, epsilon=1e-6) -> np.ndarray:
+    """
+    Computes the variance of the offset between the velocity vectors (xy only).
+    :param gt_box: GT annotation sample.
+    :param pred_box: Predicted sample.
+    :return: Variance of offset vx and vy.
+    """
+
+    # [ x, y, z, w, l, h, rot, vx, vy ]
+    #   0  1  2  3  4  5   6    7   8
+    variances = np.array(pred_box.uncertainty)
+    # clip variances to avoid division by zero.
+    variances = np.clip(variances, a_min=epsilon, a_max=None)
+    # extract variances for velocity vx and vy.
+    return variances[7], variances[8]
+
 def center_distance(gt_box: EvalBox, pred_box: EvalBox) -> float:
     """
     L2 distance between the box centers (xy only).

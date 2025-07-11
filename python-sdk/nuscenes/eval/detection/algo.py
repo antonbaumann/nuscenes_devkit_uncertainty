@@ -10,17 +10,22 @@ from scipy import stats
 from nuscenes.eval.common.data_classes import EvalBoxes
 from nuscenes.eval.detection.data_classes import DetectionMetricData
 from nuscenes.eval.common.utils import center_distance, scale_iou, yaw_diff, velocity_l2, attr_acc, cummean, \
-    gaussian_nll_error, within_cofidence_interval
+    gaussian_nll_error, within_cofidence_interval, center_offset, velocity_offset, center_offset_var, velocity_offset_var
+from nuscenes.calibration.regression import regression_precision_recall_df, regression_calibration_df
 
 
-def accumulate(gt_boxes: EvalBoxes,
-               pred_boxes: EvalBoxes,
-               class_name: str,
-               dist_fcn: Callable,
-               dist_th: float,
-               verbose: bool = False,
-               confidence_interval_values: List[float] = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
-               uncertainty_distribution: str = "gaussian") -> DetectionMetricData:
+def accumulate(
+    gt_boxes: EvalBoxes,
+    pred_boxes: EvalBoxes,
+    class_name: str,
+    dist_fcn: Callable,
+    dist_th: float,
+    verbose: bool = False,
+    confidence_interval_values: List[float] = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
+    uncertainty_distribution: str = "gaussian",
+    num_bins_precision_recall: int = 50,
+    num_bins_calibration: int = 15,
+) -> DetectionMetricData:
     """
     Average Precision over predefined different recall thresholds for a single distance threshold.
     The recall/conf thresholds and other raw metrics will be used in secondary metrics.
@@ -65,6 +70,11 @@ def accumulate(gt_boxes: EvalBoxes,
     ci_accumulation = {ci: [] for ci in confidence_interval_values}
     distribution = stats.laplace if uncertainty_distribution == 'laplace' else stats.norm
 
+    ece_util_keys = [
+        'trans_err_x', 'trans_err_y', 'vel_err_x', 'vel_err_y',
+        'trans_var_x', 'trans_var_y', 'vel_var_x', 'vel_var_y',
+    ]
+
     # match_data holds the extra metrics we calculate for each match.
     match_data = {
         # original metrics
@@ -82,6 +92,10 @@ def accumulate(gt_boxes: EvalBoxes,
         'size_gauss_err': [],
         'ci_gauss_err': ci_accumulation,
     }
+
+    # ECE metrics
+    for key in ece_util_keys:
+        match_data[key] = []
 
     # ---------------------------------------------
     # Match and accumulate match data.
@@ -127,6 +141,21 @@ def accumulate(gt_boxes: EvalBoxes,
             match_data['trans_gauss_err'].append(nll_pos.mean())
             match_data['vel_gauss_err'].append(nll_vel.mean())
             match_data['size_gauss_err'].append(nll_size.mean())
+
+            # For ECE metrics, we need to calculate the errors in x and y separately.
+            offset_x, offset_y = center_offset(gt_box_match, pred_box)
+            offset_vel_x, offset_vel_y = velocity_offset(gt_box_match, pred_box)
+            match_data['trans_err_x'].append(offset_x)
+            match_data['trans_err_y'].append(offset_y)
+            match_data['vel_err_x'].append(offset_vel_x)
+            match_data['vel_err_y'].append(offset_vel_y)
+
+            x_var, y_var = center_offset_var(gt_box_match, pred_box)
+            vel_x_var, vel_y_var = velocity_offset_var(gt_box_match, pred_box)
+            match_data['trans_var_x'].append(x_var)
+            match_data['trans_var_y'].append(y_var)
+            match_data['vel_var_x'].append(vel_x_var)
+            match_data['vel_var_y'].append(vel_y_var)
             
             for ci in confidence_interval_values:
                 match_data['ci_gauss_err'][ci].append(within_cofidence_interval(gt_box_match, pred_box, ci, distribution=distribution))
@@ -177,6 +206,9 @@ def accumulate(gt_boxes: EvalBoxes,
     for key in match_data.keys():
         if key in ["conf"]:
             continue  # Confidence is used as reference to align with fp and tp. So skip in this step.
+
+        if key in ece_util_keys:
+            continue
         
         elif key == "ci_gauss_err":
             for ci in confidence_interval_values:
@@ -197,6 +229,84 @@ def accumulate(gt_boxes: EvalBoxes,
             match_data[key] = np.interp(conf[::-1], match_data['conf'][::-1], tmp[::-1])[::-1]
 
     # todo: compute ECE
+    # For ECE metrics, we need to calculate the errors in x and y separately, 
+    # as the euclidean distance of the errors L2 is not gaussian distributed.
+    # 37 
+
+    # prepare dataframes for precision recall plots
+    print("Calculating precision recall dataframes...")
+    prec_rec_df_x = regression_precision_recall_df(
+        y_pred=match_data['trans_err_x'],
+        var_pred=match_data['trans_var_x'],
+        y_true=np.zeros_like(match_data['trans_err_x']),
+        n_bins=num_bins_precision_recall,
+    )
+
+    prec_rec_df_y = regression_precision_recall_df(
+        y_pred=match_data['trans_err_y'],
+        var_pred=match_data['trans_var_y'],
+        y_true=match_data['trans_err_y'],
+        n_bins=num_bins_precision_recall,
+    )
+
+    prec_rec_df_vel_x = regression_precision_recall_df(
+        y_pred=match_data['vel_err_x'],
+        var_pred=match_data['vel_var_x'],
+        y_true=np.zeros_like(match_data['vel_err_x']),
+        n_bins=num_bins_precision_recall,
+    )
+
+    prec_rec_df_vel_y = regression_precision_recall_df(
+        y_pred=match_data['vel_err_y'],
+        var_pred=match_data['vel_var_y'],
+        y_true=match_data['vel_err_y'],
+        n_bins=num_bins_precision_recall,
+    )
+
+    pred_rec_dfs = {
+        'trans_x': prec_rec_df_x,
+        'trans_y': prec_rec_df_y,
+        'vel_x': prec_rec_df_vel_x,
+        'vel_y': prec_rec_df_vel_y,
+    }
+
+    # prepare dataframes for calibration plots
+    print("Calculating calibration dataframes...")
+    calib_df_x = regression_calibration_df(
+        y_pred=match_data['trans_err_x'],
+        var_pred=match_data['trans_var_x'],
+        y_true=np.zeros_like(match_data['trans_err_x']),
+        n_bins=num_bins_calibration,
+    )
+
+    calib_df_y = regression_calibration_df(
+        y_pred=match_data['trans_err_y'],
+        var_pred=match_data['trans_var_y'],
+        y_true=np.zeros_like(match_data['trans_err_y']),
+        n_bins=num_bins_calibration,
+    )
+
+    calib_df_vel_x = regression_calibration_df(
+        y_pred=match_data['vel_err_x'],
+        var_pred=match_data['vel_var_x'],
+        y_true=np.zeros_like(match_data['vel_err_x']),
+        n_bins=num_bins_calibration,
+    )
+
+    calib_df_vel_y = regression_calibration_df(
+        y_pred=match_data['vel_err_y'],
+        var_pred=match_data['vel_var_y'],
+        y_true=match_data['vel_err_y'],
+        n_bins=num_bins_calibration,
+    )
+
+    calib_dfs = {
+        'trans_x': calib_df_x,
+        'trans_y': calib_df_y,
+        'vel_x': calib_df_vel_x,
+        'vel_y': calib_df_vel_y,
+    }
+    
 
     # ---------------------------------------------
     # Done. Instantiate MetricData and return
@@ -210,12 +320,14 @@ def accumulate(gt_boxes: EvalBoxes,
         scale_err=match_data['scale_err'],
         orient_err=match_data['orient_err'],
         attr_err=match_data['attr_err'],
-        nll_gauss_error_all = match_data['nll_gauss_error_all'],
-        trans_gauss_err = match_data['trans_gauss_err'],
-        rot_gauss_err = match_data['vel_gauss_err'],
-        vel_gauss_err = match_data['vel_gauss_err'],
-        size_gauss_err = match_data['size_gauss_err'],
-        ci_evaluation = match_data['ci_gauss_err'],
+        nll_gauss_error_all=match_data['nll_gauss_error_all'],
+        trans_gauss_err=match_data['trans_gauss_err'],
+        rot_gauss_err=match_data['vel_gauss_err'],
+        vel_gauss_err=match_data['vel_gauss_err'],
+        size_gauss_err=match_data['size_gauss_err'],
+        ci_evaluation=match_data['ci_gauss_err'],
+        prec_rec_dfs=pred_rec_dfs,
+        calib_dfs=calib_dfs,
     )
 
 
