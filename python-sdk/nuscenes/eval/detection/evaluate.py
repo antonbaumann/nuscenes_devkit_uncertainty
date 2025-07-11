@@ -20,6 +20,7 @@ from nuscenes.eval.common.data_classes import EvalBoxes
 from nuscenes.eval.common.loaders import load_prediction, load_gt, add_center_dist, filter_eval_boxes
 from nuscenes.eval.detection.render import summary_plot, class_pr_curve, class_tp_curve, dist_pr_curve, visualize_sample
 from nuscenes.eval.common.config import config_factory
+from nuscenes.calibration.ece import expected_calibration_error
 
 
 class DetectionEval:
@@ -150,6 +151,15 @@ class DetectionEval:
                     last_ind = metric_data.max_recall_ind
                     tp = np.mean(np.array(interval)[first_ind: last_ind + 1, i]) if last_ind >= first_ind else 1.
                     metrics.add_label_tp(class_name, name, tp)
+
+            # compute ECE
+            if class_name in metric_data_list.calib_dfs:
+                calib_df = metric_data_list.calib_dfs[class_name]
+                ece = expected_calibration_error(calib_df)
+                metrics.add_label_tp(class_name, 'ece', ece)
+            else:
+                metrics.add_label_tp(class_name, 'ece', np.nan)
+
 
         # Compute evaluation time.
         metrics.add_runtime(time.time() - start_time)
