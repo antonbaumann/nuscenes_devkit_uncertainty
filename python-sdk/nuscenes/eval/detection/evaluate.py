@@ -153,8 +153,8 @@ class DetectionEval:
                     metrics.add_label_tp(class_name, name, tp)
 
             # compute ECE
-            if class_name in metric_data_list.calib_dfs:
-                calib_df = metric_data_list.calib_dfs[class_name]
+            if class_name in metric_data.calib_dfs:
+                calib_df = metric_data.calib_dfs[class_name]
                 ece = expected_calibration_error(calib_df)
                 metrics.add_label_tp(class_name, 'ece', ece)
             else:
@@ -213,13 +213,15 @@ class DetectionEval:
             if not os.path.isdir(example_dir):
                 os.mkdir(example_dir)
             for sample_token in sample_tokens:
-                visualize_sample(self.nusc,
-                                 sample_token,
-                                 self.gt_boxes if self.eval_set != 'test' else EvalBoxes(),
-                                 # Don't render test GT.
-                                 self.pred_boxes,
-                                 eval_range=max(self.cfg.class_range.values()),
-                                 savepath=os.path.join(example_dir, '{}.png'.format(sample_token)))
+                visualize_sample(
+                    self.nusc,
+                    sample_token,
+                    self.gt_boxes if self.eval_set != 'test' else EvalBoxes(),
+                    # Don't render test GT.
+                    self.pred_boxes,
+                    eval_range=max(self.cfg.class_range.values()),
+                    savepath=os.path.join(example_dir, '{}.png'.format(sample_token)),
+                )
 
         # Run evaluation.
         metrics, metric_data_list = self.evaluate()
