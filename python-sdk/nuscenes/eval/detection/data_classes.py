@@ -103,7 +103,7 @@ class DetectionMetricData(MetricData):
         vel_gauss_err: np.array,
         size_gauss_err: np.array,
         ci_evaluation: dict,
-        pred_rec_dfs: Dict[str, pd.DataFrame] | None = None,
+        prec_rec_dfs: Dict[str, pd.DataFrame] | None = None,
         calib_dfs: Dict[str, pd.DataFrame] | None = None,
     ):
 
@@ -141,7 +141,7 @@ class DetectionMetricData(MetricData):
         self.vel_gauss_err = vel_gauss_err
         self.size_gauss_err = size_gauss_err
         self.ci_evaluation = ci_evaluation
-        self.pred_rec_dfs = pred_rec_dfs if pred_rec_dfs is not None else {}
+        self.prec_rec_dfs = prec_rec_dfs if prec_rec_dfs is not None else {}
         self.calib_dfs = calib_dfs if calib_dfs is not None else {}
 
     def __eq__(self, other):
@@ -186,7 +186,7 @@ class DetectionMetricData(MetricData):
             'vel_gauss_err': self.vel_gauss_err.tolist(),
             'size_gauss_err': self.size_gauss_err.tolist(),
             'ci_evaluation': self.ci_evaluation,
-            'pred_rec_dfs': {k: v.to_dict(orient='split') for k, v in self.pred_rec_dfs.items()},
+            'prec_rec_dfs': {k: v.to_dict(orient='split') for k, v in self.prec_rec_dfs.items()},
             'calib_dfs': {k: v.to_dict(orient='split') for k, v in self.calib_dfs.items()}
         }
 
@@ -212,7 +212,7 @@ class DetectionMetricData(MetricData):
             vel_gauss_err=np.array(content['vel_gauss_err']),
             size_gauss_err=np.array(content['size_gauss_err']),
             ci_evaluation=content['ci_evaluation'],
-            pred_rec_dfs=df_dict_to_dfs(content.get('pred_rec_dfs', {})),
+            prec_rec_dfs=df_dict_to_dfs(content.get('prec_rec_dfs', {})),
             calib_dfs=df_dict_to_dfs(content.get('calib_dfs', {})),
         )
     
@@ -235,7 +235,7 @@ class DetectionMetricData(MetricData):
             rot_gauss_err=np.ones(cls.nelem),
             size_gauss_err=np.ones(cls.nelem),
             ci_evaluation={},
-            pred_rec_dfs={},
+            prec_rec_dfs={},
             calib_dfs={},
         )
 
@@ -257,7 +257,7 @@ class DetectionMetricData(MetricData):
             vel_gauss_err=np.random.random(cls.nelem),
             size_gauss_err=np.random.random(cls.nelem),
             ci_evaluation={},
-            pred_rec_dfs={},
+            prec_rec_dfs={},
             calib_dfs={},
         )
 
