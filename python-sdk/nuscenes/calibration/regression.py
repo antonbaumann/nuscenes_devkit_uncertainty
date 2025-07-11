@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from scipy.special import erfinv
 from typing import Literal
 
 
@@ -95,10 +96,10 @@ def regression_calibration_df(
 
 def _normal_icdf(p: np.ndarray, *, loc: np.ndarray, var: np.ndarray) -> np.ndarray:
     """
-    Inverse CDF (quantile) of N(loc, var).  Uses NumPy’s `erfinv` (≥ 1.17).
+    Inverse CDF (quantile) of N(loc, var).  Uses scipy's erfinv
     """
     scale = np.sqrt(var)
-    return loc + scale * np.sqrt(2.0) * np.erfinv(2.0 * p - 1.0)
+    return loc + scale * np.sqrt(2.0) * erfinv(2.0 * p - 1.0)
 
 
 def _laplace_icdf(p: np.ndarray, *, loc: np.ndarray, var: np.ndarray) -> np.ndarray:
