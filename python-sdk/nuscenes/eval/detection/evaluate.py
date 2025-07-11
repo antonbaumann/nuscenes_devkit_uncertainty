@@ -155,7 +155,7 @@ class DetectionEval:
             # compute ECE
             for target_name, calibration_df in metric_data.calib_dfs.items():
                 ece = expected_calibration_error(calibration_df)
-                metrics.add_label_tp(class_name, target_name, ece)
+                metrics.add_label_ece(class_name, target_name, ece)
 
         # Compute evaluation time.
         metrics.add_runtime(time.time() - start_time)

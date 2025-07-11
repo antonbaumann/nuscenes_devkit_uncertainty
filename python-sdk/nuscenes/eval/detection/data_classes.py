@@ -270,6 +270,7 @@ class DetectionMetrics:
         self.cfg = cfg
         self._label_aps = defaultdict(lambda: defaultdict(float))
         self._label_tp_errors = defaultdict(lambda: defaultdict(float))
+        self._label_ece = defaultdict(lambda: defaultdict(float))
         self.eval_time = None
 
     def add_label_ap(self, detection_name: str, dist_th: float, ap: float) -> None:
@@ -287,10 +288,21 @@ class DetectionMetrics:
     def add_runtime(self, eval_time: float) -> None:
         self.eval_time = eval_time
 
+    def add_label_ece(self, detection_name: str, metric_name: str, ece: float):
+        self._label_ece[detection_name][metric_name] = ece
+
+    def get_label_ece(self, detection_name: str, metric_name: str) -> float:
+        return self._label_ece[detection_name][metric_name]
+
     @property
     def mean_dist_aps(self) -> Dict[str, float]:
         """ Calculates the mean over distance thresholds for each label. """
         return {class_name: np.mean(list(d.values())) for class_name, d in self._label_aps.items()}
+    
+    @property
+    def mean_label_ece(self) -> Dict[str, float]:
+        """ Calculates the mean ECE over all labels and metrics. """
+        return {class_name: np.mean(list(d.values())) for class_name, d in self._label_ece.items()}
 
     @property
     def mean_ap(self) -> float:
@@ -355,6 +367,8 @@ class DetectionMetrics:
             'tp_errors': self.tp_errors,
             'tp_scores': self.tp_scores,
             'nd_score': self.nd_score,
+            'label_ece': self._label_ece,
+            'mean_label_ece': self.mean_label_ece,
             'eval_time': self.eval_time,
             'cfg': self.cfg.serialize()
         }
@@ -376,12 +390,17 @@ class DetectionMetrics:
             for metric_name, tp in label_tps.items():
                 metrics.add_label_tp(detection_name=detection_name, metric_name=metric_name, tp=float(tp))
 
+        for detection_name, label_ece in content['label_ece'].items():
+            for metric_name, ece in label_ece.items():
+                metrics.add_label_ece(detection_name=detection_name, metric_name=metric_name, ece=float(ece))
+
         return metrics
 
     def __eq__(self, other):
         eq = True
         eq = eq and self._label_aps == other._label_aps
         eq = eq and self._label_tp_errors == other._label_tp_errors
+        eq = eq and self._label_ece == other._label_ece
         eq = eq and self.eval_time == other.eval_time
         eq = eq and self.cfg == other.cfg
 

@@ -231,8 +231,6 @@ def accumulate(
     # todo: compute ECE
     # For ECE metrics, we need to calculate the errors in x and y separately, 
     # as the euclidean distance of the errors L2 is not gaussian distributed.
-    # 37 
-
     # prepare dataframes for precision recall plots
     print("Calculating precision recall dataframes...")
     prec_rec_df_x = regression_precision_recall_df(
