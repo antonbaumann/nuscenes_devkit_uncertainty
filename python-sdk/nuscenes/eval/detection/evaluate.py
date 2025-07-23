@@ -6,6 +6,7 @@ import json
 import os
 import random
 import time
+from turtle import pd
 from typing import Optional, Tuple, Dict, Any
 from tqdm import tqdm
 
@@ -169,6 +170,19 @@ class DetectionEval:
             for target_name, calibration_df in metric_data.calib_dfs.items():
                 ece = expected_calibration_error(calibration_df)
                 metrics.add_label_ece(class_name, target_name, ece)
+        
+        # compute total ECE per target (over all classes)
+        targets = list(next(iter(metric_data_list.data.values())).calib_dfs.keys())
+        for target in targets:
+            all_dfs = []
+            for class_name in self.cfg.class_names:
+                md = metric_data_list[(class_name, self.cfg.dist_th_tp)]
+                if target in md.calib_dfs:
+                    all_dfs.append(md.calib_dfs[target])
+
+            combined_df = pd.concat(all_dfs, ignore_index=True)
+            ece = expected_calibration_error(combined_df)
+            metrics.add_target_wise_ece(target, ece)
 
         # Compute evaluation time.
         metrics.add_runtime(time.time() - start_time)

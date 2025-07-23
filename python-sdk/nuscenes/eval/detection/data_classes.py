@@ -271,6 +271,7 @@ class DetectionMetrics:
         self._label_aps = defaultdict(lambda: defaultdict(float))
         self._label_tp_errors = defaultdict(lambda: defaultdict(float))
         self._label_ece = defaultdict(lambda: defaultdict(float))
+        self._target_wise_ece = defaultdict(float)
         self.eval_time = None
 
     def add_label_ap(self, detection_name: str, dist_th: float, ap: float) -> None:
@@ -293,6 +294,12 @@ class DetectionMetrics:
 
     def get_label_ece(self, detection_name: str, metric_name: str) -> float:
         return self._label_ece[detection_name][metric_name]
+    
+    def add_target_wise_ece(self, target: str, ece: float) -> None:
+        self._target_wise_ece[target] = ece
+
+    def get_target_wise_ece(self, target: str) -> float:
+        return self._target_wise_ece[target]
 
     @property
     def mean_dist_aps(self) -> Dict[str, float]:
@@ -303,6 +310,11 @@ class DetectionMetrics:
     def mean_label_ece(self) -> Dict[str, float]:
         """ Calculates the mean ECE over all labels and metrics. """
         return {class_name: np.mean(list(d.values())) for class_name, d in self._label_ece.items()}
+
+    @property
+    def mean_target_wise_ece(self) -> float:
+        """ Calculates the mean ECE over all targets. """
+        return float(np.mean(list(self._target_wise_ece.values())))
 
     @property
     def mean_ap(self) -> float:
@@ -369,6 +381,8 @@ class DetectionMetrics:
             'nd_score': self.nd_score,
             'label_ece': self._label_ece,
             'mean_label_ece': self.mean_label_ece,
+            'target_wise_ece': self._target_wise_ece,
+            'mean_ece': self.mean_target_wise_ece,
             'eval_time': self.eval_time,
             'cfg': self.cfg.serialize()
         }
@@ -394,6 +408,9 @@ class DetectionMetrics:
             for metric_name, ece in label_ece.items():
                 metrics.add_label_ece(detection_name=detection_name, metric_name=metric_name, ece=float(ece))
 
+        for target, ece in content.get('target_wise_ece', {}).items():
+            metrics.add_target_wise_ece(target=target, ece=float(ece))
+
         return metrics
 
     def __eq__(self, other):
@@ -401,6 +418,7 @@ class DetectionMetrics:
         eq = eq and self._label_aps == other._label_aps
         eq = eq and self._label_tp_errors == other._label_tp_errors
         eq = eq and self._label_ece == other._label_ece
+        eq = eq and self._target_wise_ece == other._target_wise_ece
         eq = eq and self.eval_time == other.eval_time
         eq = eq and self.cfg == other.cfg
 
