@@ -116,7 +116,17 @@ class DetectionEval:
         print(f'Uncertainty distribution in eval: {self.cfg.distribution}')
         for class_name in tqdm(self.cfg.class_names, desc='Accumulating metric data'):
             for dist_th in self.cfg.dist_ths:
-                md = accumulate(self.gt_boxes, self.pred_boxes, class_name, self.cfg.dist_fcn_callable, dist_th, uncertainty_distribution=self.cfg.distribution)
+                compute_calibration = dist_th == self.cfg.dist_th_tp
+                md = accumulate(
+                    self.gt_boxes, 
+                    self.pred_boxes, 
+                    class_name, 
+                    self.cfg.dist_fcn_callable, 
+                    dist_th, 
+                    uncertainty_distribution=self.cfg.distribution,
+                    compute_ci=compute_calibration,
+                    compute_ece=compute_calibration,
+                )
                 metric_data_list.set(class_name, dist_th, md)
 
         # -----------------------------------

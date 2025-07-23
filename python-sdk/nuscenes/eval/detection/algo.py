@@ -25,6 +25,8 @@ def accumulate(
     uncertainty_distribution: str = "gaussian",
     num_bins_precision_recall: int = 50,
     num_bins_calibration: int = 15,
+    compute_ci: bool = True,
+    compute_ece: bool = True,
 ) -> DetectionMetricData:
     """
     Average Precision over predefined different recall thresholds for a single distance threshold.
@@ -210,7 +212,7 @@ def accumulate(
         if key in ece_util_keys:
             continue
         
-        elif key == "ci_gauss_err":
+        elif key == "ci_gauss_err" and compute_ci:
             for ci in confidence_interval_values:
                 # Same as cummean in utils but on multidim indicator data
                 tmp = np.stack(match_data[key][ci])
@@ -232,41 +234,45 @@ def accumulate(
     # For ECE metrics, we need to calculate the errors in x and y separately, 
     # as the euclidean distance of the errors L2 is not gaussian distributed.
     # prepare dataframes for precision recall plots
-    print("Calculating precision recall dataframes...")
-    prec_rec_df_x = regression_precision_recall_df(
-        y_pred=match_data['trans_err_x'],
-        var_pred=match_data['trans_var_x'],
-        y_true=np.zeros_like(match_data['trans_err_x']),
-        n_bins=num_bins_precision_recall,
-    )
 
-    prec_rec_df_y = regression_precision_recall_df(
-        y_pred=match_data['trans_err_y'],
-        var_pred=match_data['trans_var_y'],
-        y_true=match_data['trans_err_y'],
-        n_bins=num_bins_precision_recall,
-    )
+    if compute_ece:
+        print("Calculating precision recall dataframes...")
+        prec_rec_df_x = regression_precision_recall_df(
+            y_pred=match_data['trans_err_x'],
+            var_pred=match_data['trans_var_x'],
+            y_true=np.zeros_like(match_data['trans_err_x']),
+            n_bins=num_bins_precision_recall,
+        )
 
-    prec_rec_df_vel_x = regression_precision_recall_df(
-        y_pred=match_data['vel_err_x'],
-        var_pred=match_data['vel_var_x'],
-        y_true=np.zeros_like(match_data['vel_err_x']),
-        n_bins=num_bins_precision_recall,
-    )
+        prec_rec_df_y = regression_precision_recall_df(
+            y_pred=match_data['trans_err_y'],
+            var_pred=match_data['trans_var_y'],
+            y_true=match_data['trans_err_y'],
+            n_bins=num_bins_precision_recall,
+        )
 
-    prec_rec_df_vel_y = regression_precision_recall_df(
-        y_pred=match_data['vel_err_y'],
-        var_pred=match_data['vel_var_y'],
-        y_true=match_data['vel_err_y'],
-        n_bins=num_bins_precision_recall,
-    )
+        prec_rec_df_vel_x = regression_precision_recall_df(
+            y_pred=match_data['vel_err_x'],
+            var_pred=match_data['vel_var_x'],
+            y_true=np.zeros_like(match_data['vel_err_x']),
+            n_bins=num_bins_precision_recall,
+        )
 
-    pred_rec_dfs = {
-        'trans_x': prec_rec_df_x,
-        'trans_y': prec_rec_df_y,
-        'vel_x': prec_rec_df_vel_x,
-        'vel_y': prec_rec_df_vel_y,
-    }
+        prec_rec_df_vel_y = regression_precision_recall_df(
+            y_pred=match_data['vel_err_y'],
+            var_pred=match_data['vel_var_y'],
+            y_true=match_data['vel_err_y'],
+            n_bins=num_bins_precision_recall,
+        )
+
+        pred_rec_dfs = {
+            'trans_x': prec_rec_df_x,
+            'trans_y': prec_rec_df_y,
+            'vel_x': prec_rec_df_vel_x,
+            'vel_y': prec_rec_df_vel_y,
+        }
+    else:
+        pred_rec_dfs = {}
 
     # prepare dataframes for calibration plots
     print("Calculating calibration dataframes...")
