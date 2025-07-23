@@ -136,6 +136,7 @@ class DetectionEval:
         if self.verbose:
             print('Calculating metrics...')
         metrics = DetectionMetrics(self.cfg)
+
         for class_name in tqdm(self.cfg.class_names, desc='Calculating metrics'):
             # Compute APs.
             for dist_th in self.cfg.dist_ths:
@@ -172,7 +173,7 @@ class DetectionEval:
                 metrics.add_label_ece(class_name, target_name, ece)
         
         # compute total ECE per target (over all classes)
-        targets = list(next(iter(metric_data_list.data.values())).calib_dfs.keys())
+        targets = list(set(next(iter(metric_data_list.values())).calib_dfs.keys()))
         for target in targets:
             all_dfs = []
             for class_name in self.cfg.class_names:
