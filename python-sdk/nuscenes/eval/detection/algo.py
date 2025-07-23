@@ -212,23 +212,24 @@ def accumulate(
         if key in ece_util_keys:
             continue
         
-        elif key == "ci_gauss_err" and compute_ci:
-            for ci in confidence_interval_values:
-                # Same as cummean in utils but on multidim indicator data
-                tmp = np.stack(match_data[key][ci])
-                sums = np.nancumsum(tmp.astype(float), 0)
-                counts = np.cumsum(~np.isnan(tmp), 0)
-                tmp = np.divide(sums, counts, out=np.zeros_like(sums), where=counts != 0)
-                result = np.zeros((101, tmp.shape[-1]))
-                for i in range(tmp.shape[-1]):
-                    result[:, i] = np.interp(conf[::-1], match_data['conf'][::-1], tmp[::-1][:, i])[::-1]
-                match_data[key][ci] = result.tolist()
-        else:
-            # For each match_data, we first calculate the accumulated mean.
-            tmp = cummean(np.array(match_data[key]))
+        elif compute_ci:
+            if key == "ci_gauss_err":
+                for ci in confidence_interval_values:
+                    # Same as cummean in utils but on multidim indicator data
+                    tmp = np.stack(match_data[key][ci])
+                    sums = np.nancumsum(tmp.astype(float), 0)
+                    counts = np.cumsum(~np.isnan(tmp), 0)
+                    tmp = np.divide(sums, counts, out=np.zeros_like(sums), where=counts != 0)
+                    result = np.zeros((101, tmp.shape[-1]))
+                    for i in range(tmp.shape[-1]):
+                        result[:, i] = np.interp(conf[::-1], match_data['conf'][::-1], tmp[::-1][:, i])[::-1]
+                    match_data[key][ci] = result.tolist()
+            else:
+                # For each match_data, we first calculate the accumulated mean.
+                tmp = cummean(np.array(match_data[key]))
 
-            # Then interpolate based on the confidences. (Note reversing since np.interp needs increasing arrays)
-            match_data[key] = np.interp(conf[::-1], match_data['conf'][::-1], tmp[::-1])[::-1]
+                # Then interpolate based on the confidences. (Note reversing since np.interp needs increasing arrays)
+                match_data[key] = np.interp(conf[::-1], match_data['conf'][::-1], tmp[::-1])[::-1]
 
     # todo: compute ECE
     # For ECE metrics, we need to calculate the errors in x and y separately, 
