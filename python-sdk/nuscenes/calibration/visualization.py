@@ -1,7 +1,6 @@
 from typing import Optional
 import matplotlib.pyplot as plt
 import pandas as pd
-import seaborn as sns
 
 from .ece import expected_calibration_error
 
@@ -29,17 +28,13 @@ def plot_calibration(
         Matplotlib axes with the calibration plot.
     """
 
-    # Set the style of seaborn for more attractive plots
-    sns.set_theme(style="ticks")
-
     if ax is None:
         fig, ax = plt.subplots(figsize=(5, 5))
     
     # Compute ECE if needed and include it in the legend label
     ece = expected_calibration_error(df) if show_ece else None
     label_with_ece = f"{label} (ECE={ece:.3f})" if show_ece and label else f"ECE={ece:.3f}" if show_ece else label
-    # Adding the calibration line from dataframe with marker options
-    sns.lineplot(x='expected_p', y='observed_p', data=df, ax=ax, label=label_with_ece, linewidth=1.5)
+    ax.plot(df['expected_p'], df['observed_p'], label=label_with_ece, linewidth=1.5)
 
 
     if show_ideal:
@@ -59,9 +54,6 @@ def plot_calibration(
     ax.set_ylim([0, 1])
 
     ax.legend(frameon=False)
-
-    # Additional customization: removing the top and right spines for a cleaner look
-    sns.despine()
 
     return ax
 
@@ -84,15 +76,11 @@ def plot_precision_recall(
     Returns:
         Matplotlib axes with the precision-recall plot.
     """
-
-    # Set the style of seaborn for more attractive plots
-    sns.set_theme(style="ticks")
-
     if ax is None:
         fig, ax = plt.subplots(figsize=(5, 5))
 
-    # Adding the precision-recall curve from dataframe with marker options
-    sns.lineplot(x='percentile', y=metric, data=df, ax=ax, label=label, linewidth=1.5)
+    # Plot precision-recall curve using matplotlib
+    ax.plot(df['percentile'], df[metric], label=label, linewidth=1.5)
 
     # Setting labels with increased font size for better readability
     ax.set_xlabel('Percentile', fontsize=12)
@@ -101,7 +89,8 @@ def plot_precision_recall(
     # Set the range of x axis
     ax.set_xlim([-0.02, 1.02])
 
-    # Additional customization: removing the top and right spines for a cleaner look
-    sns.despine()
+    # Add legend if label is provided
+    if label is not None:
+        ax.legend(frameon=False)
 
     return ax
