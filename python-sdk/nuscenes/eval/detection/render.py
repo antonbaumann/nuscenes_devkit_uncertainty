@@ -96,13 +96,10 @@ def visualize_sample(nusc: NuScenes,
             plt.close()
 
     if wandb_log:
-        if savepath is None:
-            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
-                plt.savefig(tmpfile.name)
-                wandb.log({wandb_name or f"sample_{sample_token}": wandb.Image(tmpfile.name)})
-                os.unlink(tmpfile.name)
-        else:
-            wandb.log({wandb_name or f"sample_{sample_token}": wandb.Image(savepath)})
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
+            plt.savefig(tmpfile.name)
+            wandb.log({wandb_name or f"sample_{sample_token}": wandb.Image(tmpfile.name)})
+            os.unlink(tmpfile.name)
 
         plt.close()
     elif savepath is None:
@@ -143,13 +140,10 @@ def class_pr_curve(md_list: DetectionMetricDataList,
             plt.close()
 
     if wandb_log:
-        if savepath is None:
-            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
-                plt.savefig(tmpfile.name)
-                wandb.log({wandb_name or f"PR_{detection_name}": wandb.Image(tmpfile.name)})
-                os.unlink(tmpfile.name)
-        else:
-            wandb.log({wandb_name or f"PR_{detection_name}": wandb.Image(savepath)})
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
+            plt.savefig(tmpfile.name)
+            wandb.log({wandb_name or f"PR_{detection_name}": wandb.Image(tmpfile.name)})
+            os.unlink(tmpfile.name)
         plt.close()
 
     elif created_ax and savepath is None:
@@ -253,13 +247,10 @@ def dist_pr_curve(md_list: DetectionMetricDataList,
             plt.close()
 
     if wandb_log:
-        if savepath is None:
-            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
-                plt.savefig(tmpfile.name)
-                wandb.log({wandb_name or f"dist_PR_{dist_th}m": wandb.Image(tmpfile.name)})
-                os.unlink(tmpfile.name)
-        else:
-            wandb.log({wandb_name or f"dist_PR_{dist_th}m": wandb.Image(savepath)})
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
+            plt.savefig(tmpfile.name)
+            wandb.log({wandb_name or f"dist_PR_{dist_th}m": wandb.Image(tmpfile.name)})
+            os.unlink(tmpfile.name)
         plt.close()
 
     elif savepath is None:
@@ -304,13 +295,10 @@ def summary_plot(md_list: DetectionMetricDataList,
 
     if wandb_log:
         # Save to temporary file if not already saved
-        if savepath is None:
-            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
-                plt.savefig(tmpfile.name)
-                wandb.log({wandb_name: wandb.Image(tmpfile.name)})
-                os.unlink(tmpfile.name)  # remove temp file
-        else:
-            wandb.log({wandb_name: wandb.Image(savepath)})
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
+            plt.savefig(tmpfile.name)
+            wandb.log({wandb_name: wandb.Image(tmpfile.name)})
+            os.unlink(tmpfile.name)  # remove temp file
 
         plt.close()
 
