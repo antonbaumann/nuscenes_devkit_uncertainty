@@ -6,7 +6,7 @@ import json
 import os
 import random
 import time
-from typing import Tuple, Dict, Any
+from typing import Optional, Tuple, Dict, Any
 from tqdm import tqdm
 
 import numpy as np
@@ -132,9 +132,11 @@ class DetectionEval:
                 ap = calc_ap(metric_data, self.cfg.min_recall, self.cfg.min_precision)
                 metrics.add_label_ap(class_name, dist_th, ap)
 
+            # use metric_data for current class and dist_th_tp (default is 2.0)
+            metric_data = metric_data_list[(class_name, self.cfg.dist_th_tp)]
+
             # Compute TP metrics.
             for metric_name in TP_METRICS:
-                metric_data = metric_data_list[(class_name, self.cfg.dist_th_tp)]
                 if class_name in ['traffic_cone'] and metric_name in ['attr_err', 'vel_err', 'orient_err']:
                     tp = np.nan
                 elif class_name in ['barrier'] and metric_name in ['attr_err', 'vel_err']:
@@ -143,6 +145,7 @@ class DetectionEval:
                     tp = calc_tp(metric_data, self.cfg.min_recall, metric_name)
                 metrics.add_label_tp(class_name, metric_name, tp)
 
+            # compute confidence intervals
             axes = ['x', 'y', 'v_x', 'v_y']
             for ci, interval in metric_data.ci_evaluation.items():
                 for i, axis in enumerate(axes): 
@@ -162,7 +165,7 @@ class DetectionEval:
 
         return metrics, metric_data_list
 
-    def render(self, metrics: DetectionMetrics, md_list: DetectionMetricDataList) -> None:
+    def render(self, metrics: DetectionMetrics, md_list: DetectionMetricDataList, wandb_log: Optional[bool] = True) -> None:
         """
         Renders various PR and TP curves.
         :param metrics: DetectionMetrics instance.
@@ -179,18 +182,21 @@ class DetectionEval:
 
         for detection_name in self.cfg.class_names:
             class_pr_curve(md_list, metrics, detection_name, self.cfg.min_precision, self.cfg.min_recall,
-                           savepath=savepath(detection_name + '_pr'))
+                           savepath=savepath(detection_name + '_pr'), wandb_log=wandb_log)
 
             class_tp_curve(md_list, metrics, detection_name, self.cfg.min_recall, self.cfg.dist_th_tp,
-                           savepath=savepath(detection_name + '_tp'))
+                           savepath=savepath(detection_name + '_tp'), wandb_log=wandb_log)
 
         for dist_th in self.cfg.dist_ths:
             dist_pr_curve(md_list, metrics, dist_th, self.cfg.min_precision, self.cfg.min_recall,
-                          savepath=savepath('dist_pr_' + str(dist_th)))
+                          savepath=savepath('dist_pr_' + str(dist_th)), wandb_log=wandb_log)
 
-    def main(self,
-             plot_examples: int = 0,
-             render_curves: bool = True) -> Dict[str, Any]:
+    def main(
+        self,
+        plot_examples: int = 0,
+        render_curves: bool = True,
+        wandb_log: Optional[bool] = True,
+    ) -> Dict[str, Any]:
         """
         Main function that loads the evaluation code, visualizes samples, runs the evaluation and renders stat plots.
         :param plot_examples: How many example visualizations to write to disk.
@@ -217,6 +223,7 @@ class DetectionEval:
                     self.pred_boxes,
                     eval_range=max(self.cfg.class_range.values()),
                     savepath=os.path.join(example_dir, '{}.png'.format(sample_token)),
+                    wandb_log=wandb_log,
                 )
 
         # Run evaluation.
@@ -224,7 +231,7 @@ class DetectionEval:
 
         # Render PR and TP curves.
         if render_curves:
-            self.render(metrics, metric_data_list)
+            self.render(metrics, metric_data_list, wandb_log=wandb_log)
 
         # Dump the metric data, meta and metrics to disk.
         if self.verbose:

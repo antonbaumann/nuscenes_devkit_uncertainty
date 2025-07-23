@@ -3,9 +3,13 @@
 
 import json
 from typing import Any
+import os
+from typing import Optional
 
 import numpy as np
 from matplotlib import pyplot as plt
+import tempfile
+import wandb
 
 from nuscenes import NuScenes
 from nuscenes.eval.common.data_classes import EvalBoxes
@@ -28,18 +32,12 @@ def visualize_sample(nusc: NuScenes,
                      conf_th: float = 0.15,
                      eval_range: float = 50,
                      verbose: bool = True,
-                     savepath: str = None) -> None:
+                     savepath: str = None,
+                     wandb_log: bool = False,
+                     wandb_name: str = None) -> None:
     """
     Visualizes a sample from BEV with annotations and detection results.
-    :param nusc: NuScenes object.
-    :param sample_token: The nuScenes sample token.
-    :param gt_boxes: Ground truth boxes grouped by sample.
-    :param pred_boxes: Prediction grouped by sample.
-    :param nsweeps: Number of sweeps used for lidar visualization.
-    :param conf_th: The confidence threshold used to filter negatives.
-    :param eval_range: Range in meters beyond which boxes are ignored.
-    :param verbose: Whether to print to stdout.
-    :param savepath: If given, saves the the rendering here instead of displaying.
+    Optionally saves or logs the plot to Weights & Biases.
     """
     # Retrieve sensor & pose records.
     sample_rec = nusc.get('sample', sample_token)
@@ -51,13 +49,10 @@ def visualize_sample(nusc: NuScenes,
     boxes_gt_global = gt_boxes[sample_token]
     boxes_est_global = pred_boxes[sample_token]
 
-    # Map GT boxes to lidar.
+    # Map GT and EST boxes to lidar frame.
     boxes_gt = boxes_to_sensor(boxes_gt_global, pose_record, cs_record)
-
-    # Map EST boxes to lidar.
     boxes_est = boxes_to_sensor(boxes_est_global, pose_record, cs_record)
 
-    # Add scores to EST boxes.
     for box_est, box_est_global in zip(boxes_est, boxes_est_global):
         box_est.score = box_est_global.detection_score
 
@@ -76,30 +71,41 @@ def visualize_sample(nusc: NuScenes,
     # Show ego vehicle.
     ax.plot(0, 0, 'x', color='black')
 
-    # Show GT boxes.
+    # Show GT and EST boxes.
     for box in boxes_gt:
         box.render(ax, view=np.eye(4), colors=('g', 'g', 'g'), linewidth=2)
 
-    # Show EST boxes.
     for box in boxes_est:
-        # Show only predictions with a high score.
         assert not np.isnan(box.score), 'Error: Box score cannot be NaN!'
         if box.score >= conf_th:
             box.render(ax, view=np.eye(4), colors=('b', 'b', 'b'), linewidth=1)
 
     # Limit visible range.
-    axes_limit = eval_range + 3  # Slightly bigger to include boxes that extend beyond the range.
+    axes_limit = eval_range + 3
     ax.set_xlim(-axes_limit, axes_limit)
     ax.set_ylim(-axes_limit, axes_limit)
+    plt.title(sample_token)
 
-    # Show / save plot.
     if verbose:
         print('Rendering sample token %s' % sample_token)
-    plt.title(sample_token)
+
+    # Save or show
     if savepath is not None:
         plt.savefig(savepath)
+        if not wandb_log:
+            plt.close()
+
+    if wandb_log:
+        if savepath is None:
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
+                plt.savefig(tmpfile.name)
+                wandb.log({wandb_name or f"sample_{sample_token}": wandb.Image(tmpfile.name)})
+                os.unlink(tmpfile.name)
+        else:
+            wandb.log({wandb_name or f"sample_{sample_token}": wandb.Image(savepath)})
+
         plt.close()
-    else:
+    elif savepath is None:
         plt.show()
 
 
@@ -109,35 +115,45 @@ def class_pr_curve(md_list: DetectionMetricDataList,
                    min_precision: float,
                    min_recall: float,
                    savepath: str = None,
-                   ax: Axis = None) -> None:
+                   ax: Axis = None,
+                   wandb_log: bool = False,
+                   wandb_name: str = None) -> None:
     """
-    Plot a precision recall curve for the specified class.
-    :param md_list: DetectionMetricDataList instance.
-    :param metrics: DetectionMetrics instance.
-    :param detection_name: The detection class.
-    :param min_precision:
-    :param min_recall: Minimum recall value.
-    :param savepath: If given, saves the the rendering here instead of displaying.
-    :param ax: Axes onto which to render.
+    Plot a precision-recall curve for the specified class.
+    Optionally saves to disk or logs to Weights & Biases.
     """
-    # Prepare axis.
+    created_ax = False
     if ax is None:
-        ax = setup_axis(title=PRETTY_DETECTION_NAMES[detection_name], xlabel='Recall', ylabel='Precision', xlim=1,
-                        ylim=1, min_precision=min_precision, min_recall=min_recall)
+        created_ax = True
+        ax = setup_axis(title=PRETTY_DETECTION_NAMES[detection_name], xlabel='Recall', ylabel='Precision',
+                        xlim=1, ylim=1, min_precision=min_precision, min_recall=min_recall)
 
-    # Get recall vs precision values of given class for each distance threshold.
     data = md_list.get_class_data(detection_name)
 
-    # Plot the recall vs. precision curve for each distance threshold.
     for md, dist_th in data:
         md: DetectionMetricData
         ap = metrics.get_label_ap(detection_name, dist_th)
         ax.plot(md.recall, md.precision, label='Dist. : {}, AP: {:.1f}'.format(dist_th, ap * 100))
 
     ax.legend(loc='best')
+
     if savepath is not None:
         plt.savefig(savepath)
+        if not wandb_log:
+            plt.close()
+
+    if wandb_log:
+        if savepath is None:
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
+                plt.savefig(tmpfile.name)
+                wandb.log({wandb_name or f"PR_{detection_name}": wandb.Image(tmpfile.name)})
+                os.unlink(tmpfile.name)
+        else:
+            wandb.log({wandb_name or f"PR_{detection_name}": wandb.Image(savepath)})
         plt.close()
+
+    elif created_ax and savepath is None:
+        plt.show()
 
 
 def class_tp_curve(md_list: DetectionMetricDataList,
@@ -204,36 +220,50 @@ def dist_pr_curve(md_list: DetectionMetricDataList,
                   dist_th: float,
                   min_precision: float,
                   min_recall: float,
-                  savepath: str = None) -> None:
+                  savepath: str = None,
+                  wandb_log: bool = False,
+                  wandb_name: str = None) -> None:
     """
-    Plot the PR curves for different distance thresholds.
-    :param md_list: DetectionMetricDataList instance.
-    :param metrics: DetectionMetrics instance.
-    :param dist_th: Distance threshold for matching.
-    :param min_precision: Minimum precision value.
-    :param min_recall: Minimum recall value.
-    :param savepath: If given, saves the the rendering here instead of displaying.
+    Plot the PR curves for all classes at a fixed distance threshold.
+    Optionally saves to disk or logs to Weights & Biases.
     """
-    # Prepare axis.
-    fig, (ax, lax) = plt.subplots(ncols=2, gridspec_kw={"width_ratios": [4, 1]},
-                                  figsize=(7.5, 5))
+    fig, (ax, lax) = plt.subplots(ncols=2, gridspec_kw={"width_ratios": [4, 1]}, figsize=(7.5, 5))
+
     ax = setup_axis(xlabel='Recall', ylabel='Precision',
                     xlim=1, ylim=1, min_precision=min_precision, min_recall=min_recall, ax=ax)
 
-    # Plot the recall vs. precision curve for each detection class.
+    # Plot PR curve for each class
     data = md_list.get_dist_data(dist_th)
     for md, detection_name in data:
-        md = md_list[(detection_name, dist_th)]
         ap = metrics.get_label_ap(detection_name, dist_th)
-        ax.plot(md.recall, md.precision, label='{}: {:.1f}%'.format(PRETTY_DETECTION_NAMES[detection_name], ap * 100),
+        ax.plot(md.recall, md.precision,
+                label=f'{PRETTY_DETECTION_NAMES[detection_name]}: {ap * 100:.1f}%',
                 color=DETECTION_COLORS[detection_name])
+
+    # Legend
     hx, lx = ax.get_legend_handles_labels()
     lax.legend(hx, lx, borderaxespad=0)
     lax.axis("off")
+
     plt.tight_layout()
+
     if savepath is not None:
         plt.savefig(savepath)
+        if not wandb_log:
+            plt.close()
+
+    if wandb_log:
+        if savepath is None:
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
+                plt.savefig(tmpfile.name)
+                wandb.log({wandb_name or f"dist_PR_{dist_th}m": wandb.Image(tmpfile.name)})
+                os.unlink(tmpfile.name)
+        else:
+            wandb.log({wandb_name or f"dist_PR_{dist_th}m": wandb.Image(savepath)})
         plt.close()
+
+    elif savepath is None:
+        plt.show()
 
 
 def summary_plot(md_list: DetectionMetricDataList,
@@ -241,15 +271,12 @@ def summary_plot(md_list: DetectionMetricDataList,
                  min_precision: float,
                  min_recall: float,
                  dist_th_tp: float,
-                 savepath: str = None) -> None:
+                 savepath: Optional[str] = None,
+                 wandb_log: bool = False,
+                 wandb_name: str = "summary_plot") -> None:
     """
     Creates a summary plot with PR and TP curves for each class.
-    :param md_list: DetectionMetricDataList instance.
-    :param metrics: DetectionMetrics instance.
-    :param min_precision: Minimum precision value.
-    :param min_recall: Minimum recall value.
-    :param dist_th_tp: The distance threshold used to determine matches.
-    :param savepath: If given, saves the the rendering here instead of displaying.
+    Optionally saves to disk and/or logs to Weights & Biases.
     """
     n_classes = len(DETECTION_NAMES)
     _, axes = plt.subplots(nrows=n_classes, ncols=2, figsize=(15, 5 * n_classes))
@@ -272,6 +299,19 @@ def summary_plot(md_list: DetectionMetricDataList,
 
     if savepath is not None:
         plt.savefig(savepath)
+        if not wandb_log:
+            plt.close()
+
+    if wandb_log:
+        # Save to temporary file if not already saved
+        if savepath is None:
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
+                plt.savefig(tmpfile.name)
+                wandb.log({wandb_name: wandb.Image(tmpfile.name)})
+                os.unlink(tmpfile.name)  # remove temp file
+        else:
+            wandb.log({wandb_name: wandb.Image(savepath)})
+
         plt.close()
 
 
