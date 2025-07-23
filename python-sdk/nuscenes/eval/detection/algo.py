@@ -275,42 +275,45 @@ def accumulate(
     else:
         pred_rec_dfs = {}
 
-    # prepare dataframes for calibration plots
-    print("Calculating calibration dataframes...")
-    calib_df_x = regression_calibration_df(
-        y_pred=match_data['trans_err_x'],
-        var_pred=match_data['trans_var_x'],
-        y_true=np.zeros_like(match_data['trans_err_x']),
-        n_bins=num_bins_calibration,
-    )
+    if compute_ece:
+        # prepare dataframes for calibration plots
+        print("Calculating calibration dataframes...")
+        calib_df_x = regression_calibration_df(
+            y_pred=match_data['trans_err_x'],
+            var_pred=match_data['trans_var_x'],
+            y_true=np.zeros_like(match_data['trans_err_x']),
+            n_bins=num_bins_calibration,
+        )
 
-    calib_df_y = regression_calibration_df(
-        y_pred=match_data['trans_err_y'],
-        var_pred=match_data['trans_var_y'],
-        y_true=np.zeros_like(match_data['trans_err_y']),
-        n_bins=num_bins_calibration,
-    )
+        calib_df_y = regression_calibration_df(
+            y_pred=match_data['trans_err_y'],
+            var_pred=match_data['trans_var_y'],
+            y_true=np.zeros_like(match_data['trans_err_y']),
+            n_bins=num_bins_calibration,
+        )
 
-    calib_df_vel_x = regression_calibration_df(
-        y_pred=match_data['vel_err_x'],
-        var_pred=match_data['vel_var_x'],
-        y_true=np.zeros_like(match_data['vel_err_x']),
-        n_bins=num_bins_calibration,
-    )
+        calib_df_vel_x = regression_calibration_df(
+            y_pred=match_data['vel_err_x'],
+            var_pred=match_data['vel_var_x'],
+            y_true=np.zeros_like(match_data['vel_err_x']),
+            n_bins=num_bins_calibration,
+        )
 
-    calib_df_vel_y = regression_calibration_df(
-        y_pred=match_data['vel_err_y'],
-        var_pred=match_data['vel_var_y'],
-        y_true=match_data['vel_err_y'],
-        n_bins=num_bins_calibration,
-    )
+        calib_df_vel_y = regression_calibration_df(
+            y_pred=match_data['vel_err_y'],
+            var_pred=match_data['vel_var_y'],
+            y_true=match_data['vel_err_y'],
+            n_bins=num_bins_calibration,
+        )
 
-    calib_dfs = {
-        'trans_x': calib_df_x,
-        'trans_y': calib_df_y,
-        'vel_x': calib_df_vel_x,
-        'vel_y': calib_df_vel_y,
-    }
+        calib_dfs = {
+            'trans_x': calib_df_x,
+            'trans_y': calib_df_y,
+            'vel_x': calib_df_vel_x,
+            'vel_y': calib_df_vel_y,
+        }
+    else:
+        calib_dfs = {}
     
 
     # ---------------------------------------------
