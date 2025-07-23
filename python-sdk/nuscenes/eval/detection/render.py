@@ -156,7 +156,9 @@ def class_tp_curve(md_list: DetectionMetricDataList,
                    min_recall: float,
                    dist_th_tp: float,
                    savepath: str = None,
-                   ax: Axis = None) -> None:
+                   ax: Axis = None,
+                   wandb_log: bool = False,
+                   wandb_name: str = None) -> None:
     """
     Plot the true positive curve for the specified class.
     :param md_list: DetectionMetricDataList instance.
@@ -206,7 +208,18 @@ def class_tp_curve(md_list: DetectionMetricDataList,
 
     if savepath is not None:
         plt.savefig(savepath)
+        if not wandb_log:
+            plt.close()
+
+    if wandb_log:
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
+            plt.savefig(tmpfile.name)
+            wandb.log({wandb_name or f"TP_{detection_name}": wandb.Image(tmpfile.name)})
+            os.unlink(tmpfile.name)
         plt.close()
+
+    elif savepath is None:
+        plt.show()
 
 
 def dist_pr_curve(md_list: DetectionMetricDataList,
