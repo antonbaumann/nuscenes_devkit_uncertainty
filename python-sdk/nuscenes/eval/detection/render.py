@@ -16,10 +16,12 @@ from nuscenes.eval.common.data_classes import EvalBoxes
 from nuscenes.eval.common.utils import boxes_to_sensor
 from nuscenes.eval.common.render import setup_axis
 from nuscenes.eval.detection.data_classes import DetectionMetrics, DetectionMetricData, DetectionMetricDataList
-from nuscenes.eval.detection.constants import TP_METRICS, DETECTION_NAMES, DETECTION_COLORS, TP_METRICS_UNITS, \
+from nuscenes.eval.detection.constants import TP_METRICS_PLOT, DETECTION_NAMES, DETECTION_COLORS, TP_METRICS_UNITS, \
     PRETTY_DETECTION_NAMES, PRETTY_TP_METRICS
 from nuscenes.utils.data_classes import LidarPointCloud
 from nuscenes.utils.geometry_utils import view_points
+
+from nuscenes.calibration.visualization import plot_calibration
 
 Axis = Any
 
@@ -174,7 +176,7 @@ def class_tp_curve(md_list: DetectionMetricDataList,
     min_recall_ind = round(100 * min_recall)
     if min_recall_ind <= md.max_recall_ind:
         # For traffic_cone and barrier only a subset of the metrics are plotted.
-        rel_metrics = [m for m in TP_METRICS if not np.isnan(metrics.get_label_tp(detection_name, m))]
+        rel_metrics = [m for m in TP_METRICS_PLOT if not np.isnan(metrics.get_label_tp(detection_name, m))]
         ylimit = max([max(getattr(md, metric)[min_recall_ind:md.max_recall_ind + 1]) for metric in rel_metrics]) * 1.1
     else:
         ylimit = 1.0
@@ -186,7 +188,7 @@ def class_tp_curve(md_list: DetectionMetricDataList,
     ax.set_ylim(0, ylimit)
 
     # Plot the recall vs. error curve for each tp metric.
-    for metric in TP_METRICS:
+    for metric in TP_METRICS_PLOT:
         tp = metrics.get_label_tp(detection_name, metric)
 
         # Plot only if we have valid data.
@@ -220,6 +222,61 @@ def class_tp_curve(md_list: DetectionMetricDataList,
 
     elif savepath is None:
         plt.show()
+
+def class_ece_curve(md_list: DetectionMetricDataList,
+                   metrics: DetectionMetrics,
+                   detection_name: str,
+                   dist_th_ece: float,
+                   savepath: str = None,
+                   ax: Axis = None,
+                   wandb_log: bool = False,
+                   wandb_name: str = None) -> None:
+    """
+    Plot the Expected Calibration Error (ECE) curve for the specified class.
+    :param md_list: DetectionMetricDataList instance.
+    :param metrics: DetectionMetrics instance.
+    :param detection_name: Name of the detection class.
+    :param dist_th_ece: The distance threshold used to determine matches.
+    :param savepath: If given, saves the rendering here instead of displaying.
+    :param ax: Axes onto which to render.
+    """
+    md = md_list[(detection_name, dist_th_ece)]
+
+    created_ax = False
+    if ax is None:
+        created_ax = True
+        _, ax = plt.subplots(1, 1, figsize=(5, 5))
+
+    for i, (key, calib_df) in enumerate(md.calib_dfs.items()):
+        label = f"{key}"
+        show_ideal = (i == 0)
+        plot_calibration(
+            calib_df,
+            label=label,
+            ax=ax,
+            show_ideal=show_ideal,
+            show_ece=True,
+            show_area=False,
+        )
+
+    ax.set_title(PRETTY_DETECTION_NAMES[detection_name])
+    ax.legend()
+
+    if savepath is not None:
+        plt.savefig(savepath)
+        if not wandb_log:
+            plt.close()
+
+    if wandb_log:
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
+            plt.savefig(tmpfile.name)
+            wandb.log({wandb_name or f"ECE_{detection_name}": wandb.Image(tmpfile.name)})
+            os.unlink(tmpfile.name)
+        plt.close()
+
+    elif created_ax and savepath is None:
+        plt.show()
+
 
 
 def dist_pr_curve(md_list: DetectionMetricDataList,

@@ -18,7 +18,7 @@ from nuscenes.eval.detection.data_classes import DetectionConfig, DetectionMetri
     DetectionMetricDataList
 from nuscenes.eval.common.data_classes import EvalBoxes
 from nuscenes.eval.common.loaders import load_prediction, load_gt, add_center_dist, filter_eval_boxes
-from nuscenes.eval.detection.render import summary_plot, class_pr_curve, class_tp_curve, dist_pr_curve, visualize_sample
+from nuscenes.eval.detection.render import summary_plot, class_pr_curve, class_tp_curve, dist_pr_curve, visualize_sample, class_ece_curve
 from nuscenes.eval.common.config import config_factory
 from nuscenes.calibration.ece import expected_calibration_error
 
@@ -196,6 +196,9 @@ class DetectionEval:
 
             class_tp_curve(md_list, metrics, detection_name, self.cfg.min_recall, self.cfg.dist_th_tp,
                            savepath=savepath(detection_name + '_tp'), wandb_log=wandb_log)
+            
+            class_ece_curve(md_list, metrics, detection_name, self.cfg.dist_th_tp,
+                            savepath=savepath(detection_name + '_ece'), wandb_log=wandb_log)
 
         for dist_th in self.cfg.dist_ths:
             dist_pr_curve(md_list, metrics, dist_th, self.cfg.min_precision, self.cfg.min_recall,
