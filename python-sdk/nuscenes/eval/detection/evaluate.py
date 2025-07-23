@@ -199,6 +199,9 @@ class DetectionEval:
             
             class_ece_curve(md_list, metrics, detection_name, self.cfg.dist_th_tp,
                             savepath=savepath(detection_name + '_ece'), wandb_log=wandb_log)
+            
+            class_prec_rec_curve(md_list, detection_name, self.cfg.dist_th_tp,
+                                    savepath=savepath(detection_name + '_prec_rec'), wandb_log=wandb_log)
 
         for dist_th in self.cfg.dist_ths:
             dist_pr_curve(md_list, metrics, dist_th, self.cfg.min_precision, self.cfg.min_recall,

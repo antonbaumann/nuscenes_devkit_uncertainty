@@ -60,7 +60,7 @@ def plot_calibration(
 
 def plot_precision_recall(
     df: pd.DataFrame,
-    metric: str = 'mae',
+    metric: str = 'mse',
     label: Optional[str] = None,
     ax: Optional[plt.Axes] = None,
 ) -> plt.Axes:

@@ -20,8 +20,7 @@ from nuscenes.eval.detection.constants import TP_METRICS_PLOT, DETECTION_NAMES, 
     PRETTY_DETECTION_NAMES, PRETTY_TP_METRICS
 from nuscenes.utils.data_classes import LidarPointCloud
 from nuscenes.utils.geometry_utils import view_points
-
-from nuscenes.calibration.visualization import plot_calibration
+from nuscenes.calibration.visualization import plot_calibration, plot_precision_recall
 
 Axis = Any
 
@@ -223,14 +222,16 @@ def class_tp_curve(md_list: DetectionMetricDataList,
     elif savepath is None:
         plt.show()
 
-def class_ece_curve(md_list: DetectionMetricDataList,
-                   metrics: DetectionMetrics,
-                   detection_name: str,
-                   dist_th_ece: float,
-                   savepath: str = None,
-                   ax: Axis = None,
-                   wandb_log: bool = False,
-                   wandb_name: str = None) -> None:
+def class_ece_curve(
+    md_list: DetectionMetricDataList,
+    metrics: DetectionMetrics,
+    detection_name: str,
+    dist_th_ece: float,
+    savepath: str = None,
+    ax: Axis = None,
+    wandb_log: bool = False,
+    wandb_name: str = None,
+) -> None:
     """
     Plot the Expected Calibration Error (ECE) curve for the specified class.
     :param md_list: DetectionMetricDataList instance.
@@ -245,11 +246,11 @@ def class_ece_curve(md_list: DetectionMetricDataList,
     created_ax = False
     if ax is None:
         created_ax = True
-        _, ax = plt.subplots(1, 1, figsize=(5, 5))
+        _, ax = plt.subplots(1, 1, figsize=(8, 8))
 
     for i, (key, calib_df) in enumerate(md.calib_dfs.items()):
         label = f"{key}"
-        show_ideal = (i == 0)
+        show_ideal = (i == len(md.calib_dfs) - 1)  # Show ideal line only for the last curve
         plot_calibration(
             calib_df,
             label=label,
@@ -271,6 +272,48 @@ def class_ece_curve(md_list: DetectionMetricDataList,
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
             plt.savefig(tmpfile.name)
             wandb.log({wandb_name or f"ECE_{detection_name}": wandb.Image(tmpfile.name)})
+            os.unlink(tmpfile.name)
+        plt.close()
+
+    elif created_ax and savepath is None:
+        plt.show()
+
+
+def class_prec_rec_curve(
+    md_list: DetectionMetricDataList,
+    detection_name: str,
+    dist_th_prec: float,
+    savepath: str = None,
+    ax: Axis = None,
+    wandb_log: bool = False,
+    wandb_name: str = None,
+) -> None:
+    """
+    Plot a precision-recall metric curve for the specified class and distance threshold.
+    Optionally saves to disk or logs to Weights & Biases.
+    """
+    md = md_list[(detection_name, dist_th_prec)]
+
+    created_ax = False
+    if ax is None:
+        created_ax = True
+        _, ax = plt.subplots(1, 1, figsize=(8, 8))
+
+    for key, prec_df in md.prec_rec_dfs.items():
+        plot_precision_recall(prec_df, label=key, ax=ax)
+
+    ax.set_title(PRETTY_DETECTION_NAMES[detection_name])
+    ax.legend()
+
+    if savepath is not None:
+        plt.savefig(savepath)
+        if not wandb_log:
+            plt.close()
+
+    if wandb_log:
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
+            plt.savefig(tmpfile.name)
+            wandb.log({wandb_name or f"PrecRec_{detection_name}": wandb.Image(tmpfile.name)})
             os.unlink(tmpfile.name)
         plt.close()
 

@@ -252,7 +252,7 @@ def accumulate(
         prec_rec_df_y = regression_precision_recall_df(
             y_pred=match_data['trans_err_y'],
             var_pred=match_data['trans_var_y'],
-            y_true=match_data['trans_err_y'],
+            y_true=np.zeros_like(match_data['trans_err_y']),
             n_bins=num_bins_precision_recall,
         )
 
@@ -266,7 +266,7 @@ def accumulate(
         prec_rec_df_vel_y = regression_precision_recall_df(
             y_pred=match_data['vel_err_y'],
             var_pred=match_data['vel_var_y'],
-            y_true=match_data['vel_err_y'],
+            y_true=np.zeros_like(match_data['vel_err_y']),
             n_bins=num_bins_precision_recall,
         )
 
@@ -306,7 +306,7 @@ def accumulate(
         calib_df_vel_y = regression_calibration_df(
             y_pred=match_data['vel_err_y'],
             var_pred=match_data['vel_var_y'],
-            y_true=match_data['vel_err_y'],
+            y_true=np.zeros_like(match_data['vel_err_y']),
             n_bins=num_bins_calibration,
         )
 
