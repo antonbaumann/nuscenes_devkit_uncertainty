@@ -38,7 +38,16 @@ PRETTY_ATTRIBUTE_NAMES = {'pedestrian.moving': 'Ped. Moving',
                           'vehicle.parked': 'Veh. Parked',
                           'vehicle.stopped': 'Veh. Stopped'}
 
-TP_METRICS = ['trans_err', 'scale_err', 'orient_err', 'vel_err', 'attr_err', 'nll_gauss_error_all', 'trans_gauss_err', 'vel_gauss_err']
+TP_METRICS = [
+    'trans_err', 
+    'scale_err', 
+    'orient_err', 
+    'vel_err', 
+    'attr_err', 
+    # 'nll_gauss_error_all', 
+    # 'trans_gauss_err', 
+    # 'vel_gauss_err'
+]
 
 PRETTY_TP_METRICS = {
     'trans_err': 'Trans.',
@@ -46,9 +55,9 @@ PRETTY_TP_METRICS = {
     'orient_err': 'Orient.',
     'vel_err': 'Vel.',
     'attr_err': 'Attr.',
-    'nll_gauss_error_all': 'GNLL',
-    'trans_gauss_err': 'NLL Pos',
-    'vel_gauss_err': 'NLL Vel',
+    # 'nll_gauss_error_all': 'GNLL',
+    # 'trans_gauss_err': 'NLL Pos',
+    # 'vel_gauss_err': 'NLL Vel',
 }
 
 TP_METRICS_UNITS = {
@@ -57,7 +66,7 @@ TP_METRICS_UNITS = {
     'orient_err': 'rad.',
     'vel_err': 'm/s',
     'attr_err': '1-acc.',
-    'nll_gauss_error_all': 'nats',
-    'trans_gauss_err': 'nats',
-    'vel_gauss_err': 'nats',
+    # 'nll_gauss_error_all': 'nats',
+    # 'trans_gauss_err': 'nats',
+    # 'vel_gauss_err': 'nats',
 }

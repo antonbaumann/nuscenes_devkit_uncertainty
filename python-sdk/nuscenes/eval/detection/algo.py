@@ -226,7 +226,7 @@ def accumulate(
                     match_data[key][ci] = result.tolist()
         else:
             # For each match_data, we first calculate the accumulated mean.
-            tmp = cummean(np.array(match_data[key]))
+            tmp = cummean(np.array(match_data[key])).tolist()
 
             # Then interpolate based on the confidences. (Note reversing since np.interp needs increasing arrays)
             match_data[key] = np.interp(conf[::-1], match_data['conf'][::-1], tmp[::-1])[::-1]
