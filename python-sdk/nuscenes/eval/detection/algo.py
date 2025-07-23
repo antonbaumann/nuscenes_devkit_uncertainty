@@ -212,8 +212,8 @@ def accumulate(
         if key in ece_util_keys:
             continue
         
-        elif compute_ci:
-            if key == "ci_gauss_err":
+        elif key == "ci_gauss_err":
+            if compute_ci:
                 for ci in confidence_interval_values:
                     # Same as cummean in utils but on multidim indicator data
                     tmp = np.stack(match_data[key][ci])
@@ -224,12 +224,12 @@ def accumulate(
                     for i in range(tmp.shape[-1]):
                         result[:, i] = np.interp(conf[::-1], match_data['conf'][::-1], tmp[::-1][:, i])[::-1]
                     match_data[key][ci] = result.tolist()
-            else:
-                # For each match_data, we first calculate the accumulated mean.
-                tmp = cummean(np.array(match_data[key]))
+        else:
+            # For each match_data, we first calculate the accumulated mean.
+            tmp = cummean(np.array(match_data[key]))
 
-                # Then interpolate based on the confidences. (Note reversing since np.interp needs increasing arrays)
-                match_data[key] = np.interp(conf[::-1], match_data['conf'][::-1], tmp[::-1])[::-1]
+            # Then interpolate based on the confidences. (Note reversing since np.interp needs increasing arrays)
+            match_data[key] = np.interp(conf[::-1], match_data['conf'][::-1], tmp[::-1])[::-1]
 
     # todo: compute ECE
     # For ECE metrics, we need to calculate the errors in x and y separately, 
