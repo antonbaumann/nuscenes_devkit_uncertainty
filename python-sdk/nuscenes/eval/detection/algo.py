@@ -224,9 +224,13 @@ def accumulate(
                     for i in range(tmp.shape[-1]):
                         result[:, i] = np.interp(conf[::-1], match_data['conf'][::-1], tmp[::-1][:, i])[::-1]
                     match_data[key][ci] = result.tolist()
+            else:
+                # If we do not compute confidence intervals, we just set them to 0.
+                for ci in confidence_interval_values:
+                    match_data[key][ci] = np.zeros((101, 1)).tolist()
         else:
             # For each match_data, we first calculate the accumulated mean.
-            tmp = cummean(np.array(match_data[key])).tolist()
+            tmp = cummean(np.array(match_data[key]))
 
             # Then interpolate based on the confidences. (Note reversing since np.interp needs increasing arrays)
             match_data[key] = np.interp(conf[::-1], match_data['conf'][::-1], tmp[::-1])[::-1]
