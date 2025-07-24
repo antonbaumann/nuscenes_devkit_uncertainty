@@ -12,6 +12,8 @@ from nuscenes.utils.data_classes import Box
 
 DetectionBox = Any  # Workaround as direct imports lead to cyclic dependencies.
 
+MIN_VARIANCE = 1e-5
+
 
 def within_cofidence_interval(gt_box: EvalBox, pred_box: EvalBox, confidence: float, distribution = stats.norm):
     """
@@ -34,7 +36,7 @@ def within_cofidence_interval(gt_box: EvalBox, pred_box: EvalBox, confidence: fl
     return np.concatenate([full_dist[:2] <= distance_from_mean[:2], vel_difference <= distance_from_mean[7:]]) + 0 
 
 
-def gaussian_nll_error(gt_box: EvalBox, pred_box: EvalBox, epsilon: float=1e-6) -> np.ndarray:
+def gaussian_nll_error(gt_box: EvalBox, pred_box: EvalBox, epsilon: float=MIN_VARIANCE) -> np.ndarray:
     """
     Gaussian negative log-likelihood metric for position and bbox parameters
     :param gt_box: GT annotation sample.
@@ -83,7 +85,7 @@ def center_offset(gt_box: EvalBox, pred_box: EvalBox) -> np.ndarray:
     offset_y = pred_box.translation[1] - gt_box.translation[1]
     return offset_x, offset_y
 
-def center_offset_var(gt_box: EvalBox, pred_box: EvalBox, epsilon=1e-6) -> np.ndarray:
+def center_offset_var(gt_box: EvalBox, pred_box: EvalBox, epsilon=MIN_VARIANCE) -> np.ndarray:
     """
     Computes the variance of the offset between the box centers (xy only).
     :param gt_box: GT annotation sample.
@@ -111,7 +113,7 @@ def velocity_offset(gt_box: EvalBox, pred_box: EvalBox) -> np.ndarray:
     offset_vy = pred_box.velocity[1] - gt_box.velocity[1]
     return offset_vx, offset_vy
 
-def velocity_offset_var(gt_box: EvalBox, pred_box: EvalBox, epsilon=1e-6) -> np.ndarray:
+def velocity_offset_var(gt_box: EvalBox, pred_box: EvalBox, epsilon=MIN_VARIANCE) -> np.ndarray:
     """
     Computes the variance of the offset between the velocity vectors (xy only).
     :param gt_box: GT annotation sample.
