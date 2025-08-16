@@ -321,6 +321,29 @@ class DetectionMetrics:
 
     def get_target_wise_ece(self, target: str) -> float:
         return self._target_wise_ece[target]
+    
+    def add_label_var(self, detection_name: str, var_type: str, value: float):
+        """Store variance summaries (e.g. aleatoric, epistemic, total)."""
+        if not hasattr(self, 'label_vars'):
+            self.label_vars = {}
+        if detection_name not in self.label_vars:
+            self.label_vars[detection_name] = {}
+        self.label_vars[detection_name][var_type] = value
+
+    @property
+    def mean_label_var(self) -> Dict[str, float]:
+        """Mean aleatoric/epistemic/total variance per class."""
+        if not hasattr(self, 'label_vars'):
+            return {}
+        return {cls: float(np.mean(list(vals.values())))
+                for cls, vals in self.label_vars.items()}
+
+    @property
+    def mean_var(self) -> float:
+        """Overall mean variance across all classes and var types."""
+        if not hasattr(self, 'label_vars') or not self.label_vars:
+            return float('nan')
+        return float(np.mean([v for d in self.label_vars.values() for v in d.values()]))
 
     @property
     def mean_dist_aps(self) -> Dict[str, float]:
@@ -404,8 +427,11 @@ class DetectionMetrics:
             'mean_label_ece': self.mean_label_ece,
             'target_wise_ece': self._target_wise_ece,
             'mean_ece': self.mean_target_wise_ece,
+            'label_vars': self.label_vars,
+            'mean_label_var': self.mean_label_var,
+            'mean_var': self.mean_var,
             'eval_time': self.eval_time,
-            'cfg': self.cfg.serialize()
+            'cfg': self.cfg.serialize(),
         }
 
     @classmethod

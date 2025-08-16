@@ -174,6 +174,13 @@ class DetectionEval:
                 targets.add(target_name)
                 ece = expected_calibration_error(calibration_df)
                 metrics.add_label_ece(class_name, target_name, ece)
+
+            if hasattr(metric_data, "aleatoric_var") and metric_data.aleatoric_var is not None:
+                metrics.add_label_var(class_name, "aleatoric", float(np.mean(metric_data.aleatoric_var)))
+            if hasattr(metric_data, "epistemic_var") and metric_data.epistemic_var is not None:
+                metrics.add_label_var(class_name, "epistemic", float(np.mean(metric_data.epistemic_var)))
+            if hasattr(metric_data, "total_var") and metric_data.total_var is not None:
+                metrics.add_label_var(class_name, "total", float(np.mean(metric_data.total_var)))
         
         # compute total ECE per target (over all classes)
         for target in targets:
