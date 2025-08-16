@@ -104,7 +104,7 @@ def aleatoric_var(gt_box: EvalBox, pred_box: EvalBox) -> np.ndarray:
     size_aleatoric_var = aleatoric_variance[[3, 4, 5]]  # w, l, h
     return pos_aleatoric_var, vel_aleatoric_var, size_aleatoric_var
 
-def total_var(gt_box: EvalBox, pred_box: EvalBox) -> np.ndarray:
+def total_variance(gt_box: EvalBox, pred_box: EvalBox) -> np.ndarray:
     """
     Computes the total variance of the predicted box.
     :param gt_box: GT annotation sample.
