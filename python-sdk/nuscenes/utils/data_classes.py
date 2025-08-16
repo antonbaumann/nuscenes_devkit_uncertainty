@@ -436,16 +436,20 @@ class RadarPointCloud(PointCloud):
 class Box:
     """ Simple data class representing a 3d box including, label, score and velocity. """
 
-    def __init__(self,
-                 center: List[float],
-                 size: List[float],
-                 orientation: Quaternion,
-                 label: int = np.nan,
-                 score: float = np.nan,
-                 velocity: Tuple = (np.nan, np.nan, np.nan),
-                 name: str = None,
-                 token: str = None,
-                 uncertainty: np.ndarray = None):
+    def __init__(
+        self,
+        center: List[float],
+        size: List[float],
+        orientation: Quaternion,
+        label: int = np.nan,
+        score: float = np.nan,
+        velocity: Tuple = (np.nan, np.nan, np.nan),
+        name: str = None,
+        token: str = None,
+        uncertainty: np.ndarray = None,
+        aleatoric_var: np.ndarray = None,
+        epistemic_var: np.ndarray = None,
+    ):
         """
         :param center: Center of box given as x, y, z.
         :param size: Size of box in width, length, height.
@@ -471,6 +475,8 @@ class Box:
         self.name = name
         self.token = token
         self.uncertainty = uncertainty
+        self.aleatoric_var = aleatoric_var
+        self.epistemic_var = epistemic_var
 
     def __eq__(self, other):
         center = np.allclose(self.center, other.center)
