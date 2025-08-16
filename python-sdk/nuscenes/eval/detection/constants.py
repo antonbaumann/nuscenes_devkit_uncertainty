@@ -46,7 +46,7 @@ TP_METRICS = [
     'attr_err', 
     'nll_gauss_error_all', 
     'trans_gauss_err', 
-    'vel_gauss_err'
+    'vel_gauss_err',
 ]
 
 TP_METRICS_PLOT = [
