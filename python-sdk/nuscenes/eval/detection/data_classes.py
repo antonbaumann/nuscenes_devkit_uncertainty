@@ -103,6 +103,9 @@ class DetectionMetricData(MetricData):
         vel_gauss_err: np.array,
         size_gauss_err: np.array,
         ci_evaluation: dict,
+        aleatoric_var: np.array,
+        epistemic_var: np.array,
+        total_var: np.array,
         prec_rec_dfs: Dict[str, pd.DataFrame] | None = None,
         calib_dfs: Dict[str, pd.DataFrame] | None = None,
     ):
@@ -121,6 +124,9 @@ class DetectionMetricData(MetricData):
         # assert len(rot_gauss_err) == self.nelem TODO: add rot_gauss_err to the metrics
         assert len(vel_gauss_err) == self.nelem
         assert len(size_gauss_err) == self.nelem
+        assert len(aleatoric_var) == self.nelem
+        assert len(epistemic_var) == self.nelem
+        assert len(total_var) == self.nelem
 
         # Assert ordering.
         assert all(confidence == sorted(confidence, reverse=True))  # Confidences should be descending.
@@ -141,6 +147,9 @@ class DetectionMetricData(MetricData):
         self.vel_gauss_err = vel_gauss_err
         self.size_gauss_err = size_gauss_err
         self.ci_evaluation = ci_evaluation
+        self.aleatoric_var = aleatoric_var
+        self.epistemic_var = epistemic_var
+        self.total_var = total_var
         self.prec_rec_dfs = prec_rec_dfs if prec_rec_dfs is not None else {}
         self.calib_dfs = calib_dfs if calib_dfs is not None else {}
 
@@ -186,6 +195,9 @@ class DetectionMetricData(MetricData):
             'vel_gauss_err': self.vel_gauss_err.tolist(),
             'size_gauss_err': self.size_gauss_err.tolist(),
             'ci_evaluation': self.ci_evaluation,
+            'aleatoric_var': self.aleatoric_var.tolist(),
+            'epistemic_var': self.epistemic_var.tolist(),
+            'total_var': self.total_var.tolist(),
             'prec_rec_dfs': {k: v.to_dict(orient='split') for k, v in self.prec_rec_dfs.items()},
             'calib_dfs': {k: v.to_dict(orient='split') for k, v in self.calib_dfs.items()}
         }
@@ -212,6 +224,9 @@ class DetectionMetricData(MetricData):
             vel_gauss_err=np.array(content['vel_gauss_err']),
             size_gauss_err=np.array(content['size_gauss_err']),
             ci_evaluation=content['ci_evaluation'],
+            aleatoric_var=np.array(content['aleatoric_var']),
+            epistemic_var=np.array(content['epistemic_var']),
+            total_var=np.array(content['total_var']),
             prec_rec_dfs=df_dict_to_dfs(content.get('prec_rec_dfs', {})),
             calib_dfs=df_dict_to_dfs(content.get('calib_dfs', {})),
         )
@@ -235,6 +250,9 @@ class DetectionMetricData(MetricData):
             rot_gauss_err=np.ones(cls.nelem),
             size_gauss_err=np.ones(cls.nelem),
             ci_evaluation={},
+            aleatoric_var=np.ones(cls.nelem),
+            epistemic_var= np.ones(cls.nelem),
+            total_var=np.ones(cls.nelem),
             prec_rec_dfs={},
             calib_dfs={},
         )
@@ -257,6 +275,9 @@ class DetectionMetricData(MetricData):
             vel_gauss_err=np.random.random(cls.nelem),
             size_gauss_err=np.random.random(cls.nelem),
             ci_evaluation={},
+            aleatoric_var=np.random.random(cls.nelem),
+            epistemic_var=np.random.random(cls.nelem),
+            total_var=np.random.random(cls.nelem),
             prec_rec_dfs={},
             calib_dfs={},
         )

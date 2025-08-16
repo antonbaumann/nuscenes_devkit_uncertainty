@@ -74,6 +74,46 @@ def gaussian_nll_error(gt_box: EvalBox, pred_box: EvalBox, epsilon: float=MIN_VA
 
     return nll_pos, nll_vel, nll_size
 
+def epistemic_var(gt_box: EvalBox, pred_box: EvalBox) -> np.ndarray:
+    """
+    Computes the epistemic variance of the predicted box.
+    :param gt_box: GT annotation sample.
+    :param pred_box: Predicted sample.
+    :return: Epistemic variance of the predicted box.
+    """
+    # [ x, y, z, w, l, h, rot, vx, vy ]
+    #   0  1  2  3  4  5   6    7   8
+    epistemic_variance = np.array(pred_box.epistemic_var)
+    pos_epistemic_var = epistemic_variance[[0, 1]]  # x, y
+    vel_epistemic_var = epistemic_variance[[7, 8]]  # vx, vy
+    size_epistemic_var = epistemic_variance[[3, 4, 5]]  # w, l, h
+    return pos_epistemic_var, vel_epistemic_var, size_epistemic_var
+
+def aleatoric_var(gt_box: EvalBox, pred_box: EvalBox) -> np.ndarray:
+    """
+    Computes the aleatoric variance of the predicted box.
+    :param gt_box: GT annotation sample.
+    :param pred_box: Predicted sample.
+    :return: Aleatoric variance of the predicted box.
+    """
+    # [ x, y, z, w, l, h, rot, vx, vy ]
+    #   0  1  2  3  4  5   6    7   8
+    aleatoric_variance = np.array(pred_box.aleatoric_var)
+    pos_aleatoric_var = aleatoric_variance[[0, 1]]  # x, y
+    vel_aleatoric_var = aleatoric_variance[[7, 8]]  # vx, vy
+    size_aleatoric_var = aleatoric_variance[[3, 4, 5]]  # w, l, h
+    return pos_aleatoric_var, vel_aleatoric_var, size_aleatoric_var
+
+def total_var(gt_box: EvalBox, pred_box: EvalBox) -> np.ndarray:
+    """
+    Computes the total variance of the predicted box.
+    :param gt_box: GT annotation sample.
+    :param pred_box: Predicted sample.
+    :return: Total variance of the predicted box.
+    """
+    pos_var, vel_var, size_var = pred_box.uncertainty[:2], pred_box.uncertainty[7:9], pred_box.uncertainty[3:6]
+    return pos_var, vel_var, size_var
+
 def center_offset(gt_box: EvalBox, pred_box: EvalBox) -> np.ndarray:
     """
     Computes the offset between the box centers (xy only).

@@ -10,7 +10,8 @@ from scipy import stats
 from nuscenes.eval.common.data_classes import EvalBoxes
 from nuscenes.eval.detection.data_classes import DetectionMetricData
 from nuscenes.eval.common.utils import center_distance, scale_iou, yaw_diff, velocity_l2, attr_acc, cummean, \
-    gaussian_nll_error, within_cofidence_interval, center_offset, velocity_offset, center_offset_var, velocity_offset_var
+    gaussian_nll_error, within_cofidence_interval, center_offset, velocity_offset, center_offset_var, velocity_offset_var, \
+    epistemic_var, aleatoric_var, total_var
 from nuscenes.calibration.regression import regression_precision_recall_df, regression_calibration_df
 
 
@@ -93,6 +94,9 @@ def accumulate(
         'vel_gauss_err': [],
         'size_gauss_err': [],
         'ci_gauss_err': ci_accumulation,
+        'aleatoric_var': [],
+        'epistemic_var': [],
+        'total_var': [],
     }
 
     # ECE metrics
@@ -143,6 +147,18 @@ def accumulate(
             match_data['trans_gauss_err'].append(nll_pos.mean())
             match_data['vel_gauss_err'].append(nll_vel.mean())
             match_data['size_gauss_err'].append(nll_size.mean())
+
+            # collect variances
+            total_var_pos, total_var_vel, total_var_size = total_var(gt_box_match, pred_box)
+            aleatoric_var_pos, aleatoric_var_vel, aleatoric_var_size = aleatoric_var(gt_box_match, pred_box)
+            epistemic_var_pos, epistemic_var_vel, epistemic_var_size = epistemic_var(gt_box_match, pred_box)
+            total_var = np.concatenate([total_var_pos, total_var_vel, total_var_size], axis=-1)
+            aleatoric_var = np.concatenate([aleatoric_var_pos, aleatoric_var_vel, aleatoric_var_size], axis=-1)
+            epistemic_var = np.concatenate([epistemic_var_pos, epistemic_var_vel, epistemic_var_size], axis=-1)
+
+            match_data['total_var'].append(total_var.mean())
+            match_data['aleatoric_var'].append(aleatoric_var.mean())
+            match_data['epistemic_var'].append(epistemic_var.mean())
 
             # For ECE metrics, we need to calculate the errors in x and y separately.
             offset_x, offset_y = center_offset(gt_box_match, pred_box)
@@ -338,6 +354,9 @@ def accumulate(
         vel_gauss_err=match_data['vel_gauss_err'],
         size_gauss_err=match_data['size_gauss_err'],
         ci_evaluation=match_data['ci_gauss_err'],
+        aleatoric_var=match_data['aleatoric_var'],
+        epistemic_var=match_data['epistemic_var'],
+        total_var=match_data['total_var'],
         prec_rec_dfs=pred_rec_dfs,
         calib_dfs=calib_dfs,
     )
