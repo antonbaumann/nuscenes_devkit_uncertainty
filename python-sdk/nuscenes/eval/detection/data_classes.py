@@ -462,7 +462,9 @@ class DetectionBox(EvalBox):
         detection_score: float = -1.0,  # GT samples do not have a score.
         attribute_name: str = '', # Box attribute. Each box can have at most 1 attribute.
         uncertainty: List[float] = [],
-    ): # List of uncertainty values 
+        aleatoric_var: List[float] = [],
+        epistemic_var: List[float] = [],
+    ): # List of uncertainty values
 
         super().__init__(sample_token, translation, size, rotation, velocity, num_pts)
 
@@ -481,6 +483,8 @@ class DetectionBox(EvalBox):
         self.detection_score = detection_score
         self.attribute_name = attribute_name
         self.uncertainty = uncertainty
+        self.aleatoric_var = aleatoric_var
+        self.epistemic_var = epistemic_var
 
     def __eq__(self, other):
         return (self.sample_token == other.sample_token and
@@ -492,7 +496,9 @@ class DetectionBox(EvalBox):
                 self.num_pts == other.num_pts and
                 self.detection_name == other.detection_name and
                 self.detection_score == other.detection_score and
-                self.attribute_name == other.attribute_name)
+                self.attribute_name == other.attribute_name and
+                self.aleatoric_var == other.aleatoric_var and
+                self.epistemic_var == other.epistemic_var)
 
     def serialize(self) -> dict:
         """ Serialize instance into json-friendly format. """
@@ -507,7 +513,9 @@ class DetectionBox(EvalBox):
             'detection_name': self.detection_name,
             'detection_score': self.detection_score,
             'attribute_name': self.attribute_name,
-            'uncertainty': self.uncertainty
+            'uncertainty': self.uncertainty,
+            'aleatoric_var': self.aleatoric_var,
+            'epistemic_var': self.epistemic_var,
         }
 
     @classmethod
@@ -525,6 +533,8 @@ class DetectionBox(EvalBox):
             detection_score=-1.0 if 'detection_score' not in content else float(content['detection_score']),
             attribute_name=content['attribute_name'],
             uncertainty=content['uncertainty'],
+            aleatoric_var=content['aleatoric_var'],
+            epistemic_var=content['epistemic_var'],
         )
 
 

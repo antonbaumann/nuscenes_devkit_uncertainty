@@ -11,7 +11,7 @@ from nuscenes.eval.common.data_classes import EvalBoxes
 from nuscenes.eval.detection.data_classes import DetectionMetricData
 from nuscenes.eval.common.utils import center_distance, scale_iou, yaw_diff, velocity_l2, attr_acc, cummean, \
     gaussian_nll_error, within_cofidence_interval, center_offset, velocity_offset, center_offset_var, velocity_offset_var, \
-    epistemic_var, aleatoric_var, total_var
+    epistemic_variance, aleatoric_variance, total_variance
 from nuscenes.calibration.regression import regression_precision_recall_df, regression_calibration_df
 
 
@@ -149,9 +149,9 @@ def accumulate(
             match_data['size_gauss_err'].append(nll_size.mean())
 
             # collect variances
-            total_var_pos, total_var_vel, total_var_size = total_var(gt_box_match, pred_box)
-            aleatoric_var_pos, aleatoric_var_vel, aleatoric_var_size = aleatoric_var(gt_box_match, pred_box)
-            epistemic_var_pos, epistemic_var_vel, epistemic_var_size = epistemic_var(gt_box_match, pred_box)
+            total_var_pos, total_var_vel, total_var_size = total_variance(gt_box_match, pred_box)
+            aleatoric_var_pos, aleatoric_var_vel, aleatoric_var_size = aleatoric_variance(gt_box_match, pred_box)
+            epistemic_var_pos, epistemic_var_vel, epistemic_var_size = epistemic_variance(gt_box_match, pred_box)
             total_var = np.concatenate([total_var_pos, total_var_vel, total_var_size], axis=-1)
             aleatoric_var = np.concatenate([aleatoric_var_pos, aleatoric_var_vel, aleatoric_var_size], axis=-1)
             epistemic_var = np.concatenate([epistemic_var_pos, epistemic_var_vel, epistemic_var_size], axis=-1)

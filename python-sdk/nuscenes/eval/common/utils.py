@@ -74,7 +74,7 @@ def gaussian_nll_error(gt_box: EvalBox, pred_box: EvalBox, epsilon: float=MIN_VA
 
     return nll_pos, nll_vel, nll_size
 
-def epistemic_var(gt_box: EvalBox, pred_box: EvalBox) -> np.ndarray:
+def epistemic_variance(gt_box: EvalBox, pred_box: EvalBox) -> np.ndarray:
     """
     Computes the epistemic variance of the predicted box.
     :param gt_box: GT annotation sample.
@@ -89,7 +89,7 @@ def epistemic_var(gt_box: EvalBox, pred_box: EvalBox) -> np.ndarray:
     size_epistemic_var = epistemic_variance[[3, 4, 5]]  # w, l, h
     return pos_epistemic_var, vel_epistemic_var, size_epistemic_var
 
-def aleatoric_var(gt_box: EvalBox, pred_box: EvalBox) -> np.ndarray:
+def aleatoric_variance(gt_box: EvalBox, pred_box: EvalBox) -> np.ndarray:
     """
     Computes the aleatoric variance of the predicted box.
     :param gt_box: GT annotation sample.
