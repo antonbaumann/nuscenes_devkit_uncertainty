@@ -331,19 +331,25 @@ class DetectionMetrics:
         self.label_vars[detection_name][var_type] = value
 
     @property
-    def mean_label_var(self) -> Dict[str, float]:
-        """Mean aleatoric/epistemic/total variance per class."""
+    def mean_label_var(self) -> Dict[str, Dict[str, float]]:
+        """Mean variance per class, separated by type (aleatoric, epistemic, total)."""
         if not hasattr(self, 'label_vars'):
             return {}
-        return {cls: float(np.mean(list(vals.values())))
-                for cls, vals in self.label_vars.items()}
+        return {
+            cls: {var_type: float(v) for var_type, v in vals.items()}
+            for cls, vals in self.label_vars.items()
+        }
 
     @property
-    def mean_var(self) -> float:
-        """Overall mean variance across all classes and var types."""
+    def mean_var(self) -> Dict[str, float]:
+        """Overall mean variance per type across all classes."""
         if not hasattr(self, 'label_vars') or not self.label_vars:
-            return float('nan')
-        return float(np.mean([v for d in self.label_vars.values() for v in d.values()]))
+            return {}
+        result: Dict[str, list] = {}
+        for vals in self.label_vars.values():
+            for var_type, v in vals.items():
+                result.setdefault(var_type, []).append(v)
+        return {var_type: float(np.mean(vs)) for var_type, vs in result.items()}
 
     @property
     def mean_dist_aps(self) -> Dict[str, float]:
