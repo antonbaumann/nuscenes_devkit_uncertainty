@@ -17,9 +17,9 @@ from nuscenes.calibration.regression import regression_precision_recall_df, regr
 
 def _bev_bin_means(
     xs, ys, values_dict,
-    x_range=(-51.2, 51.2),
-    y_range=(-51.2, 51.2),
-    bin_size=3.2,
+    x_range=(-30, 30),
+    y_range=(-30, 30),
+    bin_size=5,
     min_count=None,
 ):
     xbins = int(np.ceil((x_range[1] - x_range[0]) / bin_size))
