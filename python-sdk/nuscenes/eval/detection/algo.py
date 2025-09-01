@@ -1,7 +1,7 @@
 # nuScenes dev-kit.
 # Code written by Oscar Beijbom, 2019.
 
-from typing import Callable, List
+from typing import Callable, List, Optional, Dict, Tuple
 from tqdm import tqdm
 
 import numpy as np
@@ -60,6 +60,7 @@ def accumulate(
     num_bins_calibration: int = 15,
     compute_ci: bool = True,
     compute_ece: bool = True,
+    ego_poses: Optional[Dict[str, Tuple[np.ndarray, np.ndarray]]] = None,
 ) -> DetectionMetricData:
     """
     Average Precision over predefined different recall thresholds for a single distance threshold.
@@ -193,7 +194,14 @@ def accumulate(
             match_data['epistemic_var'].append(epistemic_var.mean())
 
             # ---- BEV bin position (use GT center in ego for heatmaps) ----
-            gx, gy = gt_box_match.translation[0], gt_box_match.translation[1]
+            p_world = np.asarray(gt_box_match.translation, dtype=float)
+            if ego_poses is not None and pred_box.sample_token in ego_poses:
+                R_ego, t_ego = ego_poses[pred_box.sample_token]
+                p_ego = R_ego.T @ (p_world - t_ego)   # world -> ego
+                gx, gy = float(p_ego[0]), float(p_ego[1])
+            else:
+                gx, gy = float(p_world[0]), float(p_world[1])  # fallback (likely out of range)
+                
             offset_x, offset_y = center_offset(gt_box_match, pred_box)
             offset_vel_x, offset_vel_y = velocity_offset(gt_box_match, pred_box)
 
@@ -439,8 +447,6 @@ def accumulate(
         xs = np.array(match_data['pos_x'])
         ys = np.array(match_data['pos_y'])
 
-        print(xs)
-
         values = {
             # MSE maps
             'mse_pos':  np.array(match_data['mse_pos']),
@@ -462,7 +468,7 @@ def accumulate(
             xs=xs, ys=ys, values_dict=values,
             x_range=(-51.2, 51.2),  # matches your point_cloud_range
             y_range=(-51.2, 51.2),
-            # min_count=5,            # mask sparse cells; tweak as you like
+            # min_count=5,
         )
     else:
         bev_heatmaps = {}

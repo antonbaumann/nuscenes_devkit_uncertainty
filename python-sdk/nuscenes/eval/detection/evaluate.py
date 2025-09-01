@@ -9,6 +9,7 @@ import time
 import pandas as pd
 from typing import Optional, Tuple, Dict, Any
 from tqdm import tqdm
+from pyquaternion import Quaternion
 
 import numpy as np
 
@@ -101,6 +102,18 @@ class DetectionEval:
 
         self.sample_tokens = self.gt_boxes.sample_tokens
 
+    def _build_ego_poses(self) -> Dict[str, Tuple[np.ndarray, np.ndarray]]:
+        """Map sample_token -> (R_ego 3x3, t_ego 3, in world coords) for LIDAR_TOP."""
+        poses = {}
+        for tok in self.sample_tokens:
+            sample = self.nusc.get('sample', tok)
+            sd = self.nusc.get('sample_data', sample['data']['LIDAR_TOP'])
+            ego = self.nusc.get('ego_pose', sd['ego_pose_token'])
+            R = Quaternion(ego['rotation']).rotation_matrix.astype(float)   # world->ego uses R^T
+            t = np.array(ego['translation'], dtype=float)
+            poses[tok] = (R, t)
+        return poses
+
     def evaluate(self) -> Tuple[DetectionMetrics, DetectionMetricDataList]:
         """
         Performs the actual evaluation.
@@ -114,6 +127,9 @@ class DetectionEval:
         if self.verbose:
             print('Accumulating metric data...')
         metric_data_list = DetectionMetricDataList()
+
+        ego_poses = self._build_ego_poses()
+
         print(f'Uncertainty distribution in eval: {self.cfg.distribution}')
         for class_name in tqdm(self.cfg.class_names, desc='Accumulating metric data'):
             for dist_th in self.cfg.dist_ths:
@@ -127,6 +143,7 @@ class DetectionEval:
                     uncertainty_distribution=self.cfg.distribution,
                     compute_ci=compute_calibration,
                     compute_ece=compute_calibration,
+                    ego_poses=ego_poses,
                 )
                 metric_data_list.set(class_name, dist_th, md)
 
