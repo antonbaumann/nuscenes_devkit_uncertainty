@@ -264,10 +264,9 @@ class DetectionEval:
                 # Only include keys that actually exist in md.bev_heatmaps.
                 available = set(md.bev_heatmaps.keys())
                 desired = [
-                    "count",
                     "mse_pos", "ale_pos", "epi_pos",
                     "mse_vel", "ale_vel", "epi_vel",
-                    "ale_mean", "epi_mean"
+                    "ale_mean", "epi_mean", "count",
                 ]
                 keys = [k for k in desired if k in available]
 
@@ -278,9 +277,9 @@ class DetectionEval:
                     plot_bev_heatmaps(
                         md,
                         keys=keys,
-                        min_count=5,
+                        min_count=2,
                         group_vmax=True,
-                        ncols=4,
+                        ncols=3,
                         figsize_per_plot=3.0,
                         savepath=outfile,
                         wandb_log=bool(wandb_log),
