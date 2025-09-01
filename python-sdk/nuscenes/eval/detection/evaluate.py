@@ -293,10 +293,9 @@ class DetectionEval:
         # ---- Combined BEV heatmaps across all classes ----
         # Weighted merge of per-class heatmaps: mean = sum(class_mean * class_count) / sum(count)
         value_keys = [
-            "mse_pos", "mse_vel",
-            "ale_pos", "epi_pos",
-            "ale_vel", "epi_vel",
-            "ale_mean", "epi_mean",
+            "mse_pos", "ale_pos", "epi_pos",
+            "mse_vel", "ale_vel", "epi_vel",
+            "ale_mean", "epi_mean"
         ]
         combined = None
         meta_keys = ("x_edges", "y_edges", "x_range", "y_range", "bin_size")
@@ -358,7 +357,7 @@ class DetectionEval:
             md_all = _MDWrap(combined)
 
             available = set(combined.keys())
-            keys = ["count"] + [k for k in value_keys if k in available]
+            keys = [k for k in value_keys if k in available] + ["count"]
 
             outfile = savepath("bev_heatmaps_ALL")
             try:
