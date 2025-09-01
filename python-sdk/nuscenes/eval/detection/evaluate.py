@@ -367,7 +367,7 @@ class DetectionEval:
                     md_all,
                     keys=keys,
                     min_count=5,            # mask sparse bins
-                    group_vmin_vmax=True,   # comparable colormaps within a group
+                    group_vmax=True,   # comparable colormaps within a group
                     ncols=4,
                     figsize_per_plot=3.0,
                     savepath=outfile,
