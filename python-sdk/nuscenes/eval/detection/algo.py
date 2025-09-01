@@ -439,6 +439,8 @@ def accumulate(
         xs = np.array(match_data['pos_x'])
         ys = np.array(match_data['pos_y'])
 
+        print(xs)
+
         values = {
             # MSE maps
             'mse_pos':  np.array(match_data['mse_pos']),
@@ -460,8 +462,7 @@ def accumulate(
             xs=xs, ys=ys, values_dict=values,
             x_range=(-51.2, 51.2),  # matches your point_cloud_range
             y_range=(-51.2, 51.2),
-            bin_size=2.0,
-            min_count=5,            # mask sparse cells; tweak as you like
+            # min_count=5,            # mask sparse cells; tweak as you like
         )
     else:
         bev_heatmaps = {}
