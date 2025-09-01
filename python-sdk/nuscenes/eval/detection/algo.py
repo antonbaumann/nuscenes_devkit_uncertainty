@@ -20,7 +20,7 @@ def _bev_bin_means(
     x_range=(-30, 30),
     y_range=(-30, 30),
     bin_size=5,
-    min_count=None,
+    min_count=2,
 ):
     xbins = int(np.ceil((x_range[1] - x_range[0]) / bin_size))
     ybins = int(np.ceil((y_range[1] - y_range[0]) / bin_size))
@@ -468,9 +468,6 @@ def accumulate(
 
         bev_heatmaps = _bev_bin_means(
             xs=xs, ys=ys, values_dict=values,
-            x_range=(-51.2, 51.2),  # matches your point_cloud_range
-            y_range=(-51.2, 51.2),
-            # min_count=5,
         )
     else:
         bev_heatmaps = {}

@@ -484,7 +484,7 @@ def plot_bev_heatmaps(
     keys: Optional[List[str]] = None,
     *,
     min_count: int = 0,
-    group_vmin_vmax: bool = True,
+    group_vmax: bool = True,
     cmap: str = "viridis",
     ncols: int = 3,
     figsize_per_plot: float = 3.2,
@@ -561,7 +561,7 @@ def plot_bev_heatmaps(
         return k  # 'count' or anything else
 
     vmin_vmax: Dict[str, Dict[str, float]] = {}  # key -> dict(vmin=..., vmax=...)
-    if group_vmin_vmax:
+    if group_vmax:
         # find min/max per group over the selected keys
         groups = {}
         for k in keys:
@@ -572,7 +572,7 @@ def plot_bev_heatmaps(
             if mask is not None:
                 Z = Z.copy()
                 Z[mask] = np.nan
-            vmin = np.nanmin(Z)
+            vmin = 0
             vmax = np.nanmax(Z)
             if not np.isfinite(vmin) or not np.isfinite(vmax):
                 vmin, vmax = 0.0, 1.0
@@ -620,7 +620,7 @@ def plot_bev_heatmaps(
             this_vmin, this_vmax = None, None
             this_cmap = "Greys"
         else:
-            if group_vmin_vmax and k in vmin_vmax:
+            if group_vmax and k in vmin_vmax:
                 this_vmin, this_vmax = vmin_vmax[k]["vmin"], vmin_vmax[k]["vmax"]
             else:
                 # independent scale per plot
@@ -635,7 +635,7 @@ def plot_bev_heatmaps(
             Z.T, origin="lower",
             extent=[x_edges[0], x_edges[-1], y_edges[0], y_edges[-1]],
             aspect="equal",
-            vmin=this_vmin, vmax=this_vmax,
+            vmin=0, vmax=this_vmax,
             cmap=this_cmap
         )
         ax.set_title(k)
