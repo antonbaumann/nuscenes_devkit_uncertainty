@@ -19,7 +19,7 @@ def _bev_bin_means(
     xs, ys, values_dict,
     x_range=(-30, 30),
     y_range=(-30, 30),
-    bin_size=5,
+    bin_size=4,
     min_count=None,
 ):
     xbins = int(np.ceil((x_range[1] - x_range[0]) / bin_size))
