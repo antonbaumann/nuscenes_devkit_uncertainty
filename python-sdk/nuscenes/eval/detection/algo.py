@@ -19,7 +19,7 @@ def _bev_bin_means(
     xs, ys, values_dict,
     x_range=(-51.2, 51.2),
     y_range=(-51.2, 51.2),
-    bin_size=0.1 * 8,
+    bin_size=3.2,
     min_count=None,
 ):
     xbins = int(np.ceil((x_range[1] - x_range[0]) / bin_size))
@@ -201,7 +201,7 @@ def accumulate(
                 gx, gy = float(p_ego[0]), float(p_ego[1])
             else:
                 gx, gy = float(p_world[0]), float(p_world[1])  # fallback (likely out of range)
-                
+
             offset_x, offset_y = center_offset(gt_box_match, pred_box)
             offset_vel_x, offset_vel_y = velocity_offset(gt_box_match, pred_box)
 
@@ -259,6 +259,8 @@ def accumulate(
             mds('epi_size', []).append(epi_size)
             mds('ale_mean', []).append(ale_all)
             mds('epi_mean', []).append(epi_all)
+
+            
 
             # For ECE metrics, we need to calculate the errors in x and y separately.
             match_data['trans_err_x'].append(offset_x)
@@ -472,8 +474,6 @@ def accumulate(
         )
     else:
         bev_heatmaps = {}
-            
-
     # ---------------------------------------------
     # Done. Instantiate MetricData and return
     # ---------------------------------------------

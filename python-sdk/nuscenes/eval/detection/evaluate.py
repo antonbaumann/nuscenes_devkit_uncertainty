@@ -285,6 +285,95 @@ class DetectionEval:
                     if self.verbose:
                         print(f"[WARN] Skipping BEV heatmaps for {detection_name}: {e}")
 
+
+        # ---- Combined BEV heatmaps across all classes ----
+        # Weighted merge of per-class heatmaps: mean = sum(class_mean * class_count) / sum(count)
+        value_keys = [
+            "mse_pos", "mse_vel", "mse_size",
+            "ale_pos", "epi_pos",
+            "ale_vel", "epi_vel",
+            "ale_size", "epi_size",
+            "ale_mean", "epi_mean",
+        ]
+        combined = None
+        meta_keys = ("x_edges", "y_edges", "x_range", "y_range", "bin_size")
+
+        for cname in self.cfg.class_names:
+            md = md_list.get((cname, self.cfg.dist_th_tp))
+            if md is None or not getattr(md, "bev_heatmaps", None):
+                continue
+            hm = md.bev_heatmaps
+            if "count" not in hm:
+                continue
+
+            if combined is None:
+                # init accumulators
+                combined = {
+                    "count": hm["count"].astype(float).copy(),
+                }
+                # copy meta so plotting uses consistent axes
+                for mk in meta_keys:
+                    if mk in hm:
+                        combined[mk] = hm[mk]
+                # sum_k = mean_k * count
+                for k in value_keys:
+                    if k in hm:
+                        combined[f"sum_{k}"] = np.nan_to_num(hm[k]) * hm["count"]
+            else:
+                # sanity: if grid differs, skip (or assert)
+                same_grid = (
+                    np.array_equal(combined.get("x_edges"), hm.get("x_edges")) and
+                    np.array_equal(combined.get("y_edges"), hm.get("y_edges"))
+                )
+                if not same_grid:
+                    if self.verbose:
+                        print(f"[WARN] Skipping {cname} in ALL heatmap: grid mismatch.")
+                    continue
+
+                combined["count"] += hm["count"]
+                for k in value_keys:
+                    if k in hm and f"sum_{k}" in combined:
+                        combined[f"sum_{k}"] += np.nan_to_num(hm[k]) * hm["count"]
+
+        # finalize and plot
+        if combined is not None and np.any(combined["count"] > 0):
+            for k in list(combined.keys()):
+                if not k.startswith("sum_"):
+                    continue
+                name = k[4:]
+                denom = combined["count"].copy()
+                with np.errstate(invalid="ignore", divide="ignore"):
+                    m = combined[k] / denom
+                    m[denom == 0] = np.nan
+                combined[name] = m
+                del combined[k]
+
+            # wrap dict to reuse plot_bev_heatmaps(md_like, ...)
+            class _MDWrap:
+                def __init__(self, bev):
+                    self.bev_heatmaps = bev
+            md_all = _MDWrap(combined)
+
+            available = set(combined.keys())
+            keys = ["count"] + [k for k in value_keys if k in available]
+
+            outfile = savepath("bev_heatmaps_ALL")
+            try:
+                plot_bev_heatmaps(
+                    md_all,
+                    keys=keys,
+                    min_count=5,            # mask sparse bins
+                    group_vmin_vmax=True,   # comparable colormaps within a group
+                    ncols=4,
+                    figsize_per_plot=3.0,
+                    savepath=outfile,
+                    wandb_log=bool(wandb_log),
+                    wandb_prefix="BEV/ALL",
+                )
+            except Exception as e:
+                if self.verbose:
+                    print(f"[WARN] Skipping combined BEV heatmaps: {e}")
+
         for dist_th in self.cfg.dist_ths:
             dist_pr_curve(md_list, metrics, dist_th, self.cfg.min_precision, self.cfg.min_recall,
                           savepath=savepath('dist_pr_' + str(dist_th)), wandb_log=wandb_log)
