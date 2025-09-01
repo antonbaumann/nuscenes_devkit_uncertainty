@@ -365,9 +365,9 @@ class DetectionEval:
                 plot_bev_heatmaps(
                     md_all,
                     keys=keys,
-                    min_count=5,            # mask sparse bins
+                    min_count=2,            # mask sparse bins
                     group_vmax=True,   # comparable colormaps within a group
-                    ncols=4,
+                    ncols=3,
                     figsize_per_plot=3.0,
                     savepath=outfile,
                     wandb_log=bool(wandb_log),

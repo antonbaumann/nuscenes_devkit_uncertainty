@@ -537,11 +537,9 @@ def plot_bev_heatmaps(
     if keys is None:
         # only include keys that exist
         preferred = [
-            "count",                # support and coverage
             "mse_pos", "ale_pos", "epi_pos",
             "mse_vel", "ale_vel", "epi_vel",
-            "mse_size", "ale_size", "epi_size",
-            "ale_mean", "epi_mean", # overall means if available
+            "ale_mean", "epi_mean", "count", # overall means if available
         ]
         keys = [k for k in preferred if k in hm]
 
