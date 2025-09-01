@@ -19,7 +19,7 @@ def _bev_bin_means(
     xs, ys, values_dict,
     x_range=(-51.2, 51.2),
     y_range=(-51.2, 51.2),
-    bin_size=2.0,
+    bin_size=0.1 * 8,
     min_count=None,
 ):
     xbins = int(np.ceil((x_range[1] - x_range[0]) / bin_size))
@@ -194,6 +194,8 @@ def accumulate(
 
             # ---- BEV bin position (use GT center in ego for heatmaps) ----
             gx, gy = gt_box_match.translation[0], gt_box_match.translation[1]
+            offset_x, offset_y = center_offset(gt_box_match, pred_box)
+            offset_vel_x, offset_vel_y = velocity_offset(gt_box_match, pred_box)
 
             # --- MSE: position ---
             mse_pos = offset_x**2 + offset_y**2
@@ -251,8 +253,6 @@ def accumulate(
             mds('epi_mean', []).append(epi_all)
 
             # For ECE metrics, we need to calculate the errors in x and y separately.
-            offset_x, offset_y = center_offset(gt_box_match, pred_box)
-            offset_vel_x, offset_vel_y = velocity_offset(gt_box_match, pred_box)
             match_data['trans_err_x'].append(offset_x)
             match_data['trans_err_y'].append(offset_y)
             match_data['vel_err_x'].append(offset_vel_x)
@@ -311,11 +311,21 @@ def accumulate(
     # Re-sample the match-data to match, prec, recall and conf.
     # ---------------------------------------------
 
+    heatmap_raw_keys = {
+        'pos_x','pos_y',
+        'mse_pos','mse_vel','mse_size',
+        'ale_pos','epi_pos','ale_vel','epi_vel','ale_size','epi_size',
+        'ale_mean','epi_mean',
+    }
+
     for key in match_data.keys():
         if key in ["conf"]:
             continue  # Confidence is used as reference to align with fp and tp. So skip in this step.
 
         if key in ece_util_keys:
+            continue
+
+        if key in heatmap_raw_keys:
             continue
         
         elif key == "ci_gauss_err":
