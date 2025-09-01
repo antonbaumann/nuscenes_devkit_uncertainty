@@ -267,7 +267,6 @@ class DetectionEval:
                     "count",
                     "mse_pos", "ale_pos", "epi_pos",
                     "mse_vel", "ale_vel", "epi_vel",
-                    "mse_size", "ale_size", "epi_size",
                     "ale_mean", "epi_mean"
                 ]
                 keys = [k for k in desired if k in available]
@@ -280,7 +279,7 @@ class DetectionEval:
                         md,
                         keys=keys,
                         min_count=5,
-                        group_vmin_vmax=True,
+                        group_vmax=True,
                         ncols=4,
                         figsize_per_plot=3.0,
                         savepath=outfile,
@@ -295,10 +294,9 @@ class DetectionEval:
         # ---- Combined BEV heatmaps across all classes ----
         # Weighted merge of per-class heatmaps: mean = sum(class_mean * class_count) / sum(count)
         value_keys = [
-            "mse_pos", "mse_vel", "mse_size",
+            "mse_pos", "mse_vel",
             "ale_pos", "epi_pos",
             "ale_vel", "epi_vel",
-            "ale_size", "epi_size",
             "ale_mean", "epi_mean",
         ]
         combined = None

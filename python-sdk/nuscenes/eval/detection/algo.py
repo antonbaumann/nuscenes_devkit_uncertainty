@@ -20,7 +20,7 @@ def _bev_bin_means(
     x_range=(-30, 30),
     y_range=(-30, 30),
     bin_size=5,
-    min_count=2,
+    min_count=None,
 ):
     xbins = int(np.ceil((x_range[1] - x_range[0]) / bin_size))
     ybins = int(np.ceil((y_range[1] - y_range[0]) / bin_size))
@@ -233,12 +233,10 @@ def accumulate(
             epi_pos = float(np.mean(epistemic_var_pos[:2]))
             ale_vel = float(np.mean(aleatoric_var_vel[:2]))   # vx,vy
             epi_vel = float(np.mean(epistemic_var_vel[:2]))
-            ale_size = float(np.mean(aleatoric_var_size[:3])) # w,l,h
-            epi_size = float(np.mean(epistemic_var_size[:3]))
 
             # overall (pos+vel+size)
-            ale_all = float(np.mean(np.concatenate([aleatoric_var_pos, aleatoric_var_vel, aleatoric_var_size], axis=-1)))
-            epi_all = float(np.mean(np.concatenate([epistemic_var_pos, epistemic_var_vel, epistemic_var_size], axis=-1)))
+            ale_all = float(np.mean(np.concatenate([aleatoric_var_pos, aleatoric_var_vel], axis=-1)))
+            epi_all = float(np.mean(np.concatenate([epistemic_var_pos, epistemic_var_vel], axis=-1)))
 
             # ---- Stash for heatmaps ----
             mds = match_data.setdefault
@@ -248,15 +246,12 @@ def accumulate(
             # MSE layers
             mds('mse_pos', []).append(float(mse_pos))
             mds('mse_vel', []).append(float(mse_vel))
-            mds('mse_size', []).append(float(mse_size))
 
             # Uncertainty layers
             mds('ale_pos', []).append(ale_pos)
             mds('epi_pos', []).append(epi_pos)
             mds('ale_vel', []).append(ale_vel)
             mds('epi_vel', []).append(epi_vel)
-            mds('ale_size', []).append(ale_size)
-            mds('epi_size', []).append(epi_size)
             mds('ale_mean', []).append(ale_all)
             mds('epi_mean', []).append(epi_all)
 
@@ -453,15 +448,12 @@ def accumulate(
             # MSE maps
             'mse_pos':  np.array(match_data['mse_pos']),
             'mse_vel':  np.array(match_data['mse_vel']),
-            'mse_size': np.array(match_data['mse_size']),
 
             # Uncertainty maps (pos/vel/size specific + overall mean)
             'ale_pos':  np.array(match_data['ale_pos']),
             'epi_pos':  np.array(match_data['epi_pos']),
             'ale_vel':  np.array(match_data['ale_vel']),
             'epi_vel':  np.array(match_data['epi_vel']),
-            'ale_size': np.array(match_data['ale_size']),
-            'epi_size': np.array(match_data['epi_size']),
             'ale_mean': np.array(match_data['ale_mean']),
             'epi_mean': np.array(match_data['epi_mean']),
         }
