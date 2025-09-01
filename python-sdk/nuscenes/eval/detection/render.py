@@ -10,6 +10,7 @@ import math
 from matplotlib import pyplot as plt
 import tempfile
 import wandb
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 from nuscenes import NuScenes
 from nuscenes.eval.common.data_classes import EvalBoxes
@@ -484,46 +485,25 @@ def plot_bev_heatmaps(
     keys: Optional[List[str]] = None,
     *,
     min_count: int = 0,
-    group_vmax: bool = True,
+    group_vmax: bool = False,       # <— default to False since you want independent scales
     cmap: str = "viridis",
     ncols: int = 3,
-    figsize_per_plot: float = 3.2,
+    figsize_per_plot: float = 2.6,  # <— smaller default for compactness
     savepath: Optional[str] = None,
     wandb_log: bool = False,
     wandb_prefix: str = "BEV",
+    compact: bool = True,           # <— new: compact layout controls
+    title_fontsize: int = 9,
+    tick_fontsize: int = 8,
+    label_fontsize: int = 9,
+    cbar_fraction: float = 0.9,     # height of inset colorbar (relative to axes)
+    cbar_pad: float = 0.02,         # gap between axes and colorbar
 ) -> Dict[str, Any]:
     """
-    Plot one or more BEV heatmaps stored in md.bev_heatmaps.
+    Plot one or more BEV heatmaps stored in md.bev_heatmaps with compact layout.
 
-    Parameters
-    ----------
-    md : DetectionMetricData
-        Must have `bev_heatmaps` dict with keys like:
-        'count', 'x_edges', 'y_edges', and layers ('mse_pos', 'ale_pos', 'epi_pos', ...).
-    keys : list[str] or None
-        Which layers to plot. If None, a useful default set is chosen.
-    min_count : int
-        Mask cells with fewer than this many matches.
-    group_vmin_vmax : bool
-        If True, use shared vmin/vmax per semantic group (mse_*, ale_*, epi_*).
-        If False, scale each plot independently.
-    cmap : str
-        Matplotlib colormap.
-    ncols : int
-        Number of columns in the grid.
-    figsize_per_plot : float
-        Size multiplier per subplot (inches).
-    savepath : str or None
-        If provided, save the figure.
-    wandb_log : bool
-        If True, log the figure to W&B.
-    wandb_prefix : str
-        Prefix/name for W&B logging.
-
-    Returns
-    -------
-    info : dict
-        Contains the vmin/vmax used per key and the figure handle under 'fig'.
+    Independent color scaling per subplot by default (group_vmax=False).
+    If compact=True, shows only outer x/y labels and uses skinny inset colorbars.
     """
     hm = getattr(md, "bev_heatmaps", None)
     if not hm or "x_edges" not in hm or "y_edges" not in hm:
@@ -533,44 +513,40 @@ def plot_bev_heatmaps(
     y_edges = hm["y_edges"]
     count = hm.get("count", None)
 
-    # Default set of layers to plot
+    # Default set of layers to plot (preserve your preferred per-class order)
     if keys is None:
-        # only include keys that exist
         preferred = [
             "mse_pos", "ale_pos", "epi_pos",
             "mse_vel", "ale_vel", "epi_vel",
-            "ale_mean", "epi_mean", "count", # overall means if available
+            "ale_mean", "epi_mean", "count",
         ]
         keys = [k for k in preferred if k in hm]
 
-    # Prepare masks for min_count
+    # Mask for min_count
     mask = None
     if min_count and count is not None:
         mask = (count < min_count)
 
-    # Compute group ranges if requested
+    # Helper
     def group_of(k: str) -> str:
-        if k.startswith("mse_"):
-            return "mse"
-        if k.startswith("ale_"):
-            return "ale"
-        if k.startswith("epi_"):
-            return "epi"
+        if k.startswith("mse_"): return "mse"
+        if k.startswith("ale_"): return "ale"
+        if k.startswith("epi_"): return "epi"
         return k  # 'count' or anything else
 
-    vmin_vmax: Dict[str, Dict[str, float]] = {}  # key -> dict(vmin=..., vmax=...)
+    # Compute per-group ranges (only if requested)
+    vmin_vmax: Dict[str, Dict[str, float]] = {}
     if group_vmax:
-        # find min/max per group over the selected keys
         groups = {}
         for k in keys:
-            if k == "count":
+            if k == "count":  # leave count out of grouped scaling
                 continue
             g = group_of(k)
             Z = np.array(hm[k], dtype=float)
             if mask is not None:
                 Z = Z.copy()
                 Z[mask] = np.nan
-            vmin = 0
+            vmin = np.nanmin(Z)
             vmax = np.nanmax(Z)
             if not np.isfinite(vmin) or not np.isfinite(vmax):
                 vmin, vmax = 0.0, 1.0
@@ -579,14 +555,13 @@ def plot_bev_heatmaps(
             else:
                 groups[g][0] = min(groups[g][0], vmin)
                 groups[g][1] = max(groups[g][1], vmax)
-        # assign to each key
         for k in keys:
             if k == "count":
                 continue
             g = group_of(k)
             vmin_vmax[k] = {"vmin": groups[g][0], "vmax": groups[g][1]}
 
-    # Figure layout
+    # Layout
     n = len(keys)
     ncols = max(1, ncols)
     nrows = math.ceil(n / ncols)
@@ -596,8 +571,12 @@ def plot_bev_heatmaps(
         squeeze=False
     )
 
-    # Plot each layer
     info = {"fig": fig, "vmin_vmax": {}}
+
+    # Determine which axes are on the outer edges (for compact labeling)
+    def is_bottom(r): return (r == nrows - 1)
+    def is_left(c):   return (c == 0)
+
     for i, k in enumerate(keys):
         r, c = divmod(i, ncols)
         ax = axes[r][c]
@@ -605,26 +584,30 @@ def plot_bev_heatmaps(
         Z = np.array(hm[k], dtype=float) if k in hm else None
         if Z is None:
             ax.axis("off")
-            ax.set_title(f"{k} (missing)")
             continue
 
-        # Mask low-support cells if requested (except for 'count' itself)
+        # Apply mask to non-count layers
         if mask is not None and k != "count":
             Z = Z.copy()
             Z[mask] = np.nan
 
-        # Color scaling
+        # Color limits
         if k == "count":
-            this_vmin, this_vmax = None, None
+            finite = np.isfinite(Z)
+            if finite.any():
+                this_vmin, this_vmax = float(np.nanmin(Z)), float(np.nanmax(Z))
+            else:
+                this_vmin, this_vmax = 0.0, 1.0
             this_cmap = "Greys"
         else:
             if group_vmax and k in vmin_vmax:
                 this_vmin, this_vmax = vmin_vmax[k]["vmin"], vmin_vmax[k]["vmax"]
             else:
-                # independent scale per plot
                 finite = np.isfinite(Z)
                 if finite.any():
-                    this_vmin, this_vmax = np.nanmin(Z), np.nanmax(Z)
+                    this_vmin, this_vmax = float(np.nanmin(Z)), float(np.nanmax(Z))
+                    if not np.isfinite(this_vmin) or not np.isfinite(this_vmax):
+                        this_vmin, this_vmax = 0.0, 1.0
                 else:
                     this_vmin, this_vmax = 0.0, 1.0
             this_cmap = cmap
@@ -633,14 +616,35 @@ def plot_bev_heatmaps(
             Z.T, origin="lower",
             extent=[x_edges[0], x_edges[-1], y_edges[0], y_edges[-1]],
             aspect="equal",
-            vmin=0, vmax=this_vmax,
+            vmin=this_vmin,            # <— use true vmin
+            vmax=this_vmax,
             cmap=this_cmap
         )
-        ax.set_title(k)
-        ax.set_xlabel("x (m)")
-        ax.set_ylabel("y (m)")
-        cb = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
-        cb.ax.set_ylabel(k, rotation=270, labelpad=12)
+
+        # Titles & labels (compact mode trims noise)
+        ax.set_title(k, fontsize=title_fontsize, pad=2)
+        if compact:
+            if is_left(c):
+                ax.set_ylabel("y (m)", fontsize=label_fontsize)
+                ax.tick_params(labelsize=tick_fontsize)
+            else:
+                ax.set_yticklabels([])
+            if is_bottom(r):
+                ax.set_xlabel("x (m)", fontsize=label_fontsize)
+                ax.tick_params(labelsize=tick_fontsize)
+            else:
+                ax.set_xticklabels([])
+        else:
+            ax.set_xlabel("x (m)", fontsize=label_fontsize)
+            ax.set_ylabel("y (m)", fontsize=label_fontsize)
+            ax.tick_params(labelsize=tick_fontsize)
+
+        # Inset skinny colorbar (per-axis, works with independent scales)
+        cax = inset_axes(ax, width="3%", height=f"{int(cbar_fraction*100)}%",
+                         loc="right", borderpad=0.0)
+        cb = fig.colorbar(im, cax=cax)
+        cb.ax.tick_params(labelsize=tick_fontsize - 1)
+        cb.ax.set_ylabel("", rotation=270, labelpad=6)
 
         info["vmin_vmax"][k] = {"vmin": this_vmin, "vmax": this_vmax}
 
@@ -649,15 +653,17 @@ def plot_bev_heatmaps(
         r, c = divmod(j, ncols)
         axes[r][c].axis("off")
 
+    # Tighten up spacing
+    plt.subplots_adjust(wspace=0.15, hspace=0.2)
     plt.tight_layout()
 
     if savepath:
-        plt.savefig(savepath, dpi=200)
+        plt.savefig(savepath, dpi=200, bbox_inches="tight")
 
     if wandb_log:
-        import tempfile, os
+        import tempfile, os, wandb
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
-            plt.savefig(tmpfile.name, dpi=200)
+            plt.savefig(tmpfile.name, dpi=200, bbox_inches="tight")
             wandb.log({f"{wandb_prefix}/heatmaps": wandb.Image(tmpfile.name)})
             os.unlink(tmpfile.name)
 
