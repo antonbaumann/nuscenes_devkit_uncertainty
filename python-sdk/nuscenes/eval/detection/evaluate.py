@@ -278,7 +278,7 @@ class DetectionEval:
                         md,
                         keys=keys,
                         min_count=2,
-                        group_vmax=True,
+                        group_vmax=False,
                         ncols=3,
                         figsize_per_plot=3.0,
                         savepath=outfile,
@@ -366,7 +366,7 @@ class DetectionEval:
                     md_all,
                     keys=keys,
                     min_count=2,            # mask sparse bins
-                    group_vmax=True,   # comparable colormaps within a group
+                    group_vmax=False,   # comparable colormaps within a group
                     ncols=3,
                     figsize_per_plot=3.0,
                     savepath=outfile,
