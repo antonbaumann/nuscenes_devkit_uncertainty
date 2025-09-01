@@ -19,7 +19,7 @@ from nuscenes.eval.detection.data_classes import DetectionConfig, DetectionMetri
     DetectionMetricDataList
 from nuscenes.eval.common.data_classes import EvalBoxes
 from nuscenes.eval.common.loaders import load_prediction, load_gt, add_center_dist, filter_eval_boxes
-from nuscenes.eval.detection.render import summary_plot, class_pr_curve, class_tp_curve, dist_pr_curve, visualize_sample, class_ece_curve, class_prec_rec_curve
+from nuscenes.eval.detection.render import summary_plot, class_pr_curve, class_tp_curve, dist_pr_curve, visualize_sample, class_ece_curve, class_prec_rec_curve, plot_bev_heatmaps
 from nuscenes.eval.common.config import config_factory
 from nuscenes.calibration.ece import expected_calibration_error
 
@@ -227,6 +227,46 @@ class DetectionEval:
             
             class_prec_rec_curve(md_list, detection_name, self.cfg.dist_th_tp,
                                     savepath=savepath(detection_name + '_prec_rec'), wandb_log=wandb_log)
+            
+            # ---- BEV heatmaps (new) ----
+            # Use the same distance threshold as TP/ECE by default.
+            try:
+                md = md_list[(detection_name, self.cfg.dist_th_tp)]
+            except KeyError:
+                # If that (class, dist) pair doesn't exist, skip heatmaps for this class.
+                md = None
+
+            if md is not None and getattr(md, "bev_heatmaps", None):
+                # Choose a concise but informative set of layers to plot.
+                # Only include keys that actually exist in md.bev_heatmaps.
+                available = set(md.bev_heatmaps.keys())
+                desired = [
+                    "count",
+                    "mse_pos", "ale_pos", "epi_pos",
+                    "mse_vel", "ale_vel", "epi_vel",
+                    "mse_size", "ale_size", "epi_size",
+                    "ale_mean", "epi_mean"
+                ]
+                keys = [k for k in desired if k in available]
+
+                # Plot & save; also log to W&B if enabled.
+                # Mask very sparse cells to avoid noisy colorbars.
+                outfile = savepath(f"{detection_name}_bev_heatmaps")
+                try:
+                    plot_bev_heatmaps(
+                        md,
+                        keys=keys,
+                        min_count=5,
+                        group_vmin_vmax=True,
+                        ncols=4,
+                        figsize_per_plot=3.0,
+                        savepath=outfile,
+                        wandb_log=bool(wandb_log),
+                        wandb_prefix=f"BEV/{detection_name}"
+                    )
+                except Exception as e:
+                    if self.verbose:
+                        print(f"[WARN] Skipping BEV heatmaps for {detection_name}: {e}")
 
         for dist_th in self.cfg.dist_ths:
             dist_pr_curve(md_list, metrics, dist_th, self.cfg.min_precision, self.cfg.min_recall,

@@ -15,6 +15,38 @@ from nuscenes.eval.common.utils import center_distance, scale_iou, yaw_diff, vel
 from nuscenes.calibration.regression import regression_precision_recall_df, regression_calibration_df
 
 
+def _bev_bin_means(
+    xs, ys, values_dict,
+    x_range=(-51.2, 51.2),
+    y_range=(-51.2, 51.2),
+    bin_size=2.0,
+    min_count=None,
+):
+    xbins = int(np.ceil((x_range[1] - x_range[0]) / bin_size))
+    ybins = int(np.ceil((y_range[1] - y_range[0]) / bin_size))
+
+    count, x_edges, y_edges = np.histogram2d(xs, ys, bins=[xbins, ybins], range=[x_range, y_range])
+
+    out = {"count": count, "x_edges": x_edges, "y_edges": y_edges,
+           "x_range": x_range, "y_range": y_range, "bin_size": bin_size}
+
+    with np.errstate(invalid='ignore', divide='ignore'):
+        for name, vals in values_dict.items():
+            s, _, _ = np.histogram2d(xs, ys, bins=[xbins, ybins], range=[x_range, y_range], weights=vals)
+            m = s / count
+            m[count == 0] = np.nan
+            out[name] = m
+
+    if min_count is not None:
+        mask = count < min_count
+        for name in values_dict.keys():
+            arr = out[name]
+            arr[mask] = np.nan
+            out[name] = arr
+
+    return out
+
+
 def accumulate(
     gt_boxes: EvalBoxes,
     pred_boxes: EvalBoxes,
@@ -159,6 +191,64 @@ def accumulate(
             match_data['total_var'].append(total_var.mean())
             match_data['aleatoric_var'].append(aleatoric_var.mean())
             match_data['epistemic_var'].append(epistemic_var.mean())
+
+            # ---- BEV bin position (use GT center in ego for heatmaps) ----
+            gx, gy = gt_box_match.translation[0], gt_box_match.translation[1]
+
+            # --- MSE: position ---
+            mse_pos = offset_x**2 + offset_y**2
+
+            # --- MSE: velocity ---
+            mse_vel = offset_vel_x**2 + offset_vel_y**2
+
+            # --- MSE: size ---
+            # Robustly get sizes (w, l, h)
+            def _sizes(box):
+                if hasattr(box, 'size'):
+                    return np.array(box.size, dtype=float)  # (w, l, h)
+                if hasattr(box, 'wlh'):
+                    return np.array(box.wlh, dtype=float)  # (w, l, h)
+                # As a last resort, try common attribute names
+                return np.array([box.width, box.length, box.height], dtype=float)
+
+            gt_wlh = _sizes(gt_box_match)
+            pd_wlh = _sizes(pred_box)
+
+            # sum of squared errors across (w,l,h)
+            # (if you prefer mean, divide by 3.0)
+            mse_size = float(np.sum((gt_wlh - pd_wlh) ** 2))
+
+            # --- per-target ale/epi means (pos/vel/size) ---
+            ale_pos = float(np.mean(aleatoric_var_pos[:2]))   # x,y
+            epi_pos = float(np.mean(epistemic_var_pos[:2]))
+            ale_vel = float(np.mean(aleatoric_var_vel[:2]))   # vx,vy
+            epi_vel = float(np.mean(epistemic_var_vel[:2]))
+            ale_size = float(np.mean(aleatoric_var_size[:3])) # w,l,h
+            epi_size = float(np.mean(epistemic_var_size[:3]))
+
+            # overall (pos+vel+size)
+            ale_all = float(np.mean(np.concatenate([aleatoric_var_pos, aleatoric_var_vel, aleatoric_var_size], axis=-1)))
+            epi_all = float(np.mean(np.concatenate([epistemic_var_pos, epistemic_var_vel, epistemic_var_size], axis=-1)))
+
+            # ---- Stash for heatmaps ----
+            mds = match_data.setdefault
+            mds('pos_x', []).append(gx)
+            mds('pos_y', []).append(gy)
+
+            # MSE layers
+            mds('mse_pos', []).append(float(mse_pos))
+            mds('mse_vel', []).append(float(mse_vel))
+            mds('mse_size', []).append(float(mse_size))
+
+            # Uncertainty layers
+            mds('ale_pos', []).append(ale_pos)
+            mds('epi_pos', []).append(epi_pos)
+            mds('ale_vel', []).append(ale_vel)
+            mds('epi_vel', []).append(epi_vel)
+            mds('ale_size', []).append(ale_size)
+            mds('epi_size', []).append(epi_size)
+            mds('ale_mean', []).append(ale_all)
+            mds('epi_mean', []).append(epi_all)
 
             # For ECE metrics, we need to calculate the errors in x and y separately.
             offset_x, offset_y = center_offset(gt_box_match, pred_box)
@@ -334,7 +424,38 @@ def accumulate(
         }
     else:
         calib_dfs = {}
-    
+
+    if compute_ece:
+        xs = np.array(match_data['pos_x'])
+        ys = np.array(match_data['pos_y'])
+
+        values = {
+            # MSE maps
+            'mse_pos':  np.array(match_data['mse_pos']),
+            'mse_vel':  np.array(match_data['mse_vel']),
+            'mse_size': np.array(match_data['mse_size']),
+
+            # Uncertainty maps (pos/vel/size specific + overall mean)
+            'ale_pos':  np.array(match_data['ale_pos']),
+            'epi_pos':  np.array(match_data['epi_pos']),
+            'ale_vel':  np.array(match_data['ale_vel']),
+            'epi_vel':  np.array(match_data['epi_vel']),
+            'ale_size': np.array(match_data['ale_size']),
+            'epi_size': np.array(match_data['epi_size']),
+            'ale_mean': np.array(match_data['ale_mean']),
+            'epi_mean': np.array(match_data['epi_mean']),
+        }
+
+        bev_heatmaps = _bev_bin_means(
+            xs=xs, ys=ys, values_dict=values,
+            x_range=(-51.2, 51.2),  # matches your point_cloud_range
+            y_range=(-51.2, 51.2),
+            bin_size=2.0,
+            min_count=5,            # mask sparse cells; tweak as you like
+        )
+    else:
+        bev_heatmaps = {}
+            
 
     # ---------------------------------------------
     # Done. Instantiate MetricData and return
@@ -359,6 +480,7 @@ def accumulate(
         total_var=match_data['total_var'],
         prec_rec_dfs=pred_rec_dfs,
         calib_dfs=calib_dfs,
+        bev_heatmaps=bev_heatmaps,
     )
 
 

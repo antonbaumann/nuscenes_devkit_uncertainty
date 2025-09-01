@@ -2,7 +2,7 @@
 # Code written by Oscar Beijbom, 2019.
 
 from collections import defaultdict
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Any
 
 import numpy as np
 import pandas as pd
@@ -108,6 +108,7 @@ class DetectionMetricData(MetricData):
         total_var: np.array,
         prec_rec_dfs: Dict[str, pd.DataFrame] | None = None,
         calib_dfs: Dict[str, pd.DataFrame] | None = None,
+        bev_heatmaps: Dict[str, Any] | None = None,
     ):
 
         # Assert lengths.
@@ -152,6 +153,7 @@ class DetectionMetricData(MetricData):
         self.total_var = total_var
         self.prec_rec_dfs = prec_rec_dfs if prec_rec_dfs is not None else {}
         self.calib_dfs = calib_dfs if calib_dfs is not None else {}
+        self.bev_heatmaps = bev_heatmaps or {}
 
     def __eq__(self, other):
         eq = True
@@ -199,7 +201,11 @@ class DetectionMetricData(MetricData):
             'epistemic_var': self.epistemic_var.tolist(),
             'total_var': self.total_var.tolist(),
             'prec_rec_dfs': {k: v.to_dict(orient='split') for k, v in self.prec_rec_dfs.items()},
-            'calib_dfs': {k: v.to_dict(orient='split') for k, v in self.calib_dfs.items()}
+            'calib_dfs': {k: v.to_dict(orient='split') for k, v in self.calib_dfs.items()},
+            'bev_heatmaps': {
+                k: (v.tolist() if isinstance(v, np.ndarray) else v)
+                for k, v in self.bev_heatmaps.items()
+            }
         }
 
     @classmethod
@@ -209,6 +215,14 @@ class DetectionMetricData(MetricData):
         def df_dict_to_dfs(d):
             return {k: pd.DataFrame(**v) for k, v in d.items()}
     
+        bev_maps = {}
+        for k, v in content.get('bev_heatmaps', {}).items():
+            # Convert any list-like into np.array; leave scalars/metadata as-is.
+            if isinstance(v, list):
+                bev_maps[k] = np.array(v)
+            else:
+                bev_maps[k] = v
+
         return cls(
             recall=np.array(content['recall']),
             precision=np.array(content['precision']),
@@ -229,6 +243,7 @@ class DetectionMetricData(MetricData):
             total_var=np.array(content['total_var']),
             prec_rec_dfs=df_dict_to_dfs(content.get('prec_rec_dfs', {})),
             calib_dfs=df_dict_to_dfs(content.get('calib_dfs', {})),
+            bev_heatmaps=bev_maps,
         )
     
 
@@ -255,6 +270,7 @@ class DetectionMetricData(MetricData):
             total_var=np.ones(cls.nelem),
             prec_rec_dfs={},
             calib_dfs={},
+            bev_heatmaps={},
         )
 
     @classmethod
@@ -280,6 +296,7 @@ class DetectionMetricData(MetricData):
             total_var=np.random.random(cls.nelem),
             prec_rec_dfs={},
             calib_dfs={},
+            bev_heatmaps={},
         )
 
 

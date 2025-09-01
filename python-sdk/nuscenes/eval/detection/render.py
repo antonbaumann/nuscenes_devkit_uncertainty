@@ -2,11 +2,11 @@
 # Code written by Holger Caesar, Varun Bankiti, and Alex Lang, 2019.
 
 import json
-from typing import Any
+from typing import Any, List, Optional, Dict
 import os
-from typing import Optional
 
 import numpy as np
+import math
 from matplotlib import pyplot as plt
 import tempfile
 import wandb
@@ -477,3 +477,190 @@ def detailed_results_table_tex(metrics_path: str, output_path: str) -> None:
 
     with open(output_path, 'w') as f:
         f.write(tex)
+
+
+def plot_bev_heatmaps(
+    md,  # DetectionMetricData
+    keys: Optional[List[str]] = None,
+    *,
+    min_count: int = 0,
+    group_vmin_vmax: bool = True,
+    cmap: str = "viridis",
+    ncols: int = 3,
+    figsize_per_plot: float = 3.2,
+    savepath: Optional[str] = None,
+    wandb_log: bool = False,
+    wandb_prefix: str = "BEV",
+) -> Dict[str, Any]:
+    """
+    Plot one or more BEV heatmaps stored in md.bev_heatmaps.
+
+    Parameters
+    ----------
+    md : DetectionMetricData
+        Must have `bev_heatmaps` dict with keys like:
+        'count', 'x_edges', 'y_edges', and layers ('mse_pos', 'ale_pos', 'epi_pos', ...).
+    keys : list[str] or None
+        Which layers to plot. If None, a useful default set is chosen.
+    min_count : int
+        Mask cells with fewer than this many matches.
+    group_vmin_vmax : bool
+        If True, use shared vmin/vmax per semantic group (mse_*, ale_*, epi_*).
+        If False, scale each plot independently.
+    cmap : str
+        Matplotlib colormap.
+    ncols : int
+        Number of columns in the grid.
+    figsize_per_plot : float
+        Size multiplier per subplot (inches).
+    savepath : str or None
+        If provided, save the figure.
+    wandb_log : bool
+        If True, log the figure to W&B.
+    wandb_prefix : str
+        Prefix/name for W&B logging.
+
+    Returns
+    -------
+    info : dict
+        Contains the vmin/vmax used per key and the figure handle under 'fig'.
+    """
+    hm = getattr(md, "bev_heatmaps", None)
+    if not hm or "x_edges" not in hm or "y_edges" not in hm:
+        raise ValueError("md.bev_heatmaps is missing or incomplete (need x_edges, y_edges, and at least one layer).")
+
+    x_edges = hm["x_edges"]
+    y_edges = hm["y_edges"]
+    count = hm.get("count", None)
+
+    # Default set of layers to plot
+    if keys is None:
+        # only include keys that exist
+        preferred = [
+            "count",                # support and coverage
+            "mse_pos", "ale_pos", "epi_pos",
+            "mse_vel", "ale_vel", "epi_vel",
+            "mse_size", "ale_size", "epi_size",
+            "ale_mean", "epi_mean", # overall means if available
+        ]
+        keys = [k for k in preferred if k in hm]
+
+    # Prepare masks for min_count
+    mask = None
+    if min_count and count is not None:
+        mask = (count < min_count)
+
+    # Compute group ranges if requested
+    def group_of(k: str) -> str:
+        if k.startswith("mse_"):
+            return "mse"
+        if k.startswith("ale_"):
+            return "ale"
+        if k.startswith("epi_"):
+            return "epi"
+        return k  # 'count' or anything else
+
+    vmin_vmax: Dict[str, Dict[str, float]] = {}  # key -> dict(vmin=..., vmax=...)
+    if group_vmin_vmax:
+        # find min/max per group over the selected keys
+        groups = {}
+        for k in keys:
+            if k == "count":
+                continue
+            g = group_of(k)
+            Z = np.array(hm[k], dtype=float)
+            if mask is not None:
+                Z = Z.copy()
+                Z[mask] = np.nan
+            vmin = np.nanmin(Z)
+            vmax = np.nanmax(Z)
+            if not np.isfinite(vmin) or not np.isfinite(vmax):
+                vmin, vmax = 0.0, 1.0
+            if g not in groups:
+                groups[g] = [vmin, vmax]
+            else:
+                groups[g][0] = min(groups[g][0], vmin)
+                groups[g][1] = max(groups[g][1], vmax)
+        # assign to each key
+        for k in keys:
+            if k == "count":
+                continue
+            g = group_of(k)
+            vmin_vmax[k] = {"vmin": groups[g][0], "vmax": groups[g][1]}
+
+    # Figure layout
+    n = len(keys)
+    ncols = max(1, ncols)
+    nrows = math.ceil(n / ncols)
+    fig, axes = plt.subplots(
+        nrows=nrows, ncols=ncols,
+        figsize=(figsize_per_plot * ncols, figsize_per_plot * nrows),
+        squeeze=False
+    )
+
+    # Plot each layer
+    info = {"fig": fig, "vmin_vmax": {}}
+    for i, k in enumerate(keys):
+        r, c = divmod(i, ncols)
+        ax = axes[r][c]
+
+        Z = np.array(hm[k], dtype=float) if k in hm else None
+        if Z is None:
+            ax.axis("off")
+            ax.set_title(f"{k} (missing)")
+            continue
+
+        # Mask low-support cells if requested (except for 'count' itself)
+        if mask is not None and k != "count":
+            Z = Z.copy()
+            Z[mask] = np.nan
+
+        # Color scaling
+        if k == "count":
+            this_vmin, this_vmax = None, None
+            this_cmap = "Greys"
+        else:
+            if group_vmin_vmax and k in vmin_vmax:
+                this_vmin, this_vmax = vmin_vmax[k]["vmin"], vmin_vmax[k]["vmax"]
+            else:
+                # independent scale per plot
+                finite = np.isfinite(Z)
+                if finite.any():
+                    this_vmin, this_vmax = np.nanmin(Z), np.nanmax(Z)
+                else:
+                    this_vmin, this_vmax = 0.0, 1.0
+            this_cmap = cmap
+
+        im = ax.imshow(
+            Z.T, origin="lower",
+            extent=[x_edges[0], x_edges[-1], y_edges[0], y_edges[-1]],
+            aspect="equal",
+            vmin=this_vmin, vmax=this_vmax,
+            cmap=this_cmap
+        )
+        ax.set_title(k)
+        ax.set_xlabel("x (m)")
+        ax.set_ylabel("y (m)")
+        cb = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+        cb.ax.set_ylabel(k, rotation=270, labelpad=12)
+
+        info["vmin_vmax"][k] = {"vmin": this_vmin, "vmax": this_vmax}
+
+    # Turn off any empty axes
+    for j in range(n, nrows * ncols):
+        r, c = divmod(j, ncols)
+        axes[r][c].axis("off")
+
+    plt.tight_layout()
+
+    if savepath:
+        plt.savefig(savepath, dpi=200)
+
+    if wandb_log:
+        import tempfile, os
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
+            plt.savefig(tmpfile.name, dpi=200)
+            wandb.log({f"{wandb_prefix}/heatmaps": wandb.Image(tmpfile.name)})
+            os.unlink(tmpfile.name)
+
+    return info
