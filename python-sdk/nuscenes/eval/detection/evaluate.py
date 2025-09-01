@@ -25,6 +25,12 @@ from nuscenes.eval.common.config import config_factory
 from nuscenes.calibration.ece import expected_calibration_error
 
 
+def _md_or_none(md_list, cname, dist):
+    try:
+        return md_list[(cname, dist)]
+    except KeyError:
+        return None
+
 class DetectionEval:
     """
     This is the official nuScenes detection evaluation code.
@@ -299,7 +305,7 @@ class DetectionEval:
         meta_keys = ("x_edges", "y_edges", "x_range", "y_range", "bin_size")
 
         for cname in self.cfg.class_names:
-            md = md_list.get((cname, self.cfg.dist_th_tp))
+            md = _md_or_none(md_list, cname, self.cfg.dist_th_tp)
             if md is None or not getattr(md, "bev_heatmaps", None):
                 continue
             hm = md.bev_heatmaps
