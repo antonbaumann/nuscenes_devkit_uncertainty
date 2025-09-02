@@ -481,23 +481,24 @@ def detailed_results_table_tex(metrics_path: str, output_path: str) -> None:
 
 
 def plot_bev_heatmaps(
-    md,  # DetectionMetricData
+    md,
     keys: Optional[List[str]] = None,
     *,
     min_count: int = 0,
-    group_vmax: bool = False,       # <— default to False since you want independent scales
+    group_vmax: bool = False,
     cmap: str = "viridis",
     ncols: int = 3,
-    figsize_per_plot: float = 2.6,  # <— smaller default for compactness
+    figsize_per_plot: float = 2.6,
     savepath: Optional[str] = None,
     wandb_log: bool = False,
     wandb_prefix: str = "BEV",
-    compact: bool = True,           # <— new: compact layout controls
-    title_fontsize: int = 9,
-    tick_fontsize: int = 8,
-    label_fontsize: int = 9,
-    cbar_fraction: float = 0.9,     # height of inset colorbar (relative to axes)
-    cbar_pad: float = 0.02,         # gap between axes and colorbar
+    compact: bool = True,
+    # ---- bumped font sizes (3–4× larger) ----
+    title_fontsize: int = 32,
+    tick_fontsize: int = 28,
+    label_fontsize: int = 32,
+    cbar_fraction: float = 0.9,
+    cbar_pad: float = 0.02,
 ) -> Dict[str, Any]:
     """
     Plot one or more BEV heatmaps stored in md.bev_heatmaps with compact layout.
