@@ -494,9 +494,9 @@ def plot_bev_heatmaps(
     wandb_prefix: str = "BEV",
     compact: bool = True,
     # ---- bumped font sizes (3–4× larger) ----
-    title_fontsize: int = 32,
-    tick_fontsize: int = 28,
-    label_fontsize: int = 32,
+    title_fontsize: int = 26,
+    tick_fontsize: int = 23,
+    label_fontsize: int = 26,
     cbar_fraction: float = 0.9,
     cbar_pad: float = 0.02,
 ) -> Dict[str, Any]:
